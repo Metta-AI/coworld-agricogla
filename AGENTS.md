@@ -37,6 +37,16 @@ npm run smoke            # Playwright e2e (builds web first)
 Always run `npm test && npm run typecheck` before committing; run the smoke
 suite when the server, protocol, or client changed.
 
+## Coworld mode
+
+`src/server/coworld-main.ts` is the Softmax Coworld entrypoint (rollout +
+replay modes); `src/server/coworld/` holds the remote-player agent and
+artifact IO. The wire protocol docs in `docs/coworld/*.md` are embedded into
+`coworld_manifest_template.json` by `npm run build:coworld-manifest` — edit
+the docs, regenerate the template, and commit both. Remote decisions are
+dry-run validated with 3 attempts and an act timeout, then the scripted
+policy takes the turn — same termination guarantee as the LLM agents.
+
 ## LLM agents
 
 Bedrock Converse with tool-use (`src/agents/llm/`). Decisions are dry-run

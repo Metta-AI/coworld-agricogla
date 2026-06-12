@@ -19,10 +19,23 @@ export interface GameRunnerOpts {
   controllers: Controller[];
   /** Minimum ms between automated decisions, so spectators can follow. */
   paceMs: number;
+  /** Player display names (defaults to the engine's built-in names). */
+  names?: string[];
+  /** Pre-built agents for "remote" controllers, indexed by player. */
+  agents?: Agent[];
+  /** Created paused; call resume() to start play (coworld mode waits for
+   *  all remote players to connect first). */
+  startPaused?: boolean;
   onUpdate?: () => void;
   onActPrompt?: (entry: ActPromptEntry) => void;
   onError?: (err: unknown) => void;
+  /** Called after every applied decision, in order; feeds the replay log. */
+  onAction?: (action: AppliedAction) => void;
 }
+
+export type AppliedAction =
+  | { playerIdx: number; kind: "place"; placement: Placement }
+  | { playerIdx: number; kind: "feed"; decision: FeedDecision };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -39,7 +52,8 @@ export class GameRunner {
   constructor(opts: GameRunnerOpts) {
     this.#opts = opts;
     this.#controllers = [...opts.controllers];
-    this.#state = newGame({ seed: opts.seed, numPlayers: opts.numPlayers });
+    this.#paused = opts.startPaused ?? false;
+    this.#state = newGame({ seed: opts.seed, numPlayers: opts.numPlayers, names: opts.names });
     if (this.#controllers.length !== opts.numPlayers) {
       throw new Error(`need ${opts.numPlayers} controllers`);
     }
@@ -59,11 +73,17 @@ export class GameRunner {
       paused: this.#paused,
       finished: this.#state.phase === "finished",
       clients: this.clientCount,
+      readOnly: false, // SocketHub overrides in tournament mode.
     };
   }
 
   #agentFor(playerIdx: number): Agent {
     const controller = this.#controllers[playerIdx]!;
+    if (controller === "remote") {
+      const agent = this.#opts.agents?.[playerIdx];
+      if (!agent) throw new Error(`no remote agent for player ${playerIdx}`);
+      return agent;
+    }
     const key = `${playerIdx}:${controller}`;
     let agent = this.#agents.get(key);
     if (!agent) {
@@ -115,9 +135,20 @@ export class GameRunner {
     this.#state = newGame({
       seed: seed ?? this.#state.seed + 1,
       numPlayers: players,
+      names: this.#opts.names,
     });
     this.#opts.onUpdate?.();
     void this.tick();
+  }
+
+  #applyPlace(playerIdx: number, placement: Placement): void {
+    this.#state = applyPlacement(this.#state, playerIdx, placement).state;
+    this.#opts.onAction?.({ playerIdx, kind: "place", placement });
+  }
+
+  #applyFeed(playerIdx: number, decision: FeedDecision): void {
+    this.#state = applyFeeding(this.#state, playerIdx, decision).state;
+    this.#opts.onAction?.({ playerIdx, kind: "feed", decision });
   }
 
   /** Apply a human placement; throws RuleError for the caller to report. */
@@ -125,7 +156,7 @@ export class GameRunner {
     if (this.#state.phase !== "work" || this.#state.currentPlayer !== playerIdx) {
       throw new RuleError("it is not your turn to place");
     }
-    this.#state = applyPlacement(this.#state, playerIdx, placement).state;
+    this.#applyPlace(playerIdx, placement);
     this.#opts.onUpdate?.();
     void this.tick();
   }
@@ -135,7 +166,7 @@ export class GameRunner {
     if (this.#state.phase !== "feeding" || !this.#state.toFeed.includes(playerIdx)) {
       throw new RuleError("you are not feeding right now");
     }
-    this.#state = applyFeeding(this.#state, playerIdx, decision).state;
+    this.#applyFeed(playerIdx, decision);
     this.#opts.onUpdate?.();
     void this.tick();
   }
@@ -162,10 +193,10 @@ export class GameRunner {
           }
           if (generation !== this.#generation) break;
           try {
-            this.#state = applyPlacement(this.#state, pending, placement).state;
+            this.#applyPlace(pending, placement);
           } catch (err) {
             if (!(err instanceof RuleError)) throw err;
-            this.#state = applyPlacement(this.#state, pending, fallbackPlacement(view)).state;
+            this.#applyPlace(pending, fallbackPlacement(view));
           }
         } else {
           let decision: FeedDecision;
@@ -177,14 +208,10 @@ export class GameRunner {
           }
           if (generation !== this.#generation) break;
           try {
-            this.#state = applyFeeding(this.#state, pending, decision).state;
+            this.#applyFeed(pending, decision);
           } catch (err) {
             if (!(err instanceof RuleError)) throw err;
-            this.#state = applyFeeding(
-              this.#state,
-              pending,
-              computeAutoFeed(this.#state, pending),
-            ).state;
+            this.#applyFeed(pending, computeAutoFeed(this.#state, pending));
           }
         }
         this.#opts.onUpdate?.();

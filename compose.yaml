@@ -1,0 +1,12 @@
+# Builds the images referenced by coworld_manifest_template.json.
+# Service names map to manifest placeholders: agricola -> {{AGRICOLA_IMAGE}},
+# commissioner -> {{COMMISSIONER_IMAGE}}.
+services:
+  agricola:
+    image: cogame-agricola:latest
+    platform: linux/amd64
+    build:
+      context: .
+  commissioner:
+    image: ghcr.io/metta-ai/commissioners-baseline:latest
+    platform: linux/amd64

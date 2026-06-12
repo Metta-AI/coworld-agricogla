@@ -1,0 +1,9 @@
+node_modules
+dist
+generated_imgs
+test-results
+playwright-report
+tests
+.claude
+.git
+*.md

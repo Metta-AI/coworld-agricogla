@@ -15,6 +15,15 @@
         "AWS_PROFILE=softmax-org AWS_REGION=us-west-2 exec npm run preview -- --agents llm,llm,scripted,scripted"
       ],
       "port": 4173
+    },
+    {
+      "name": "agricola-replay",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "COGAME_HOST=127.0.0.1 COGAME_PORT=8586 COGAME_LOAD_REPLAY_URI=file:///tmp/agricola-coworld/replay exec npx tsx src/server/coworld-main.ts"
+      ],
+      "port": 8586
     }
   ]
 }

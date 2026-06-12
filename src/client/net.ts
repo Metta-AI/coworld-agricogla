@@ -20,6 +20,7 @@ export interface FeedState {
 export class GameSocket {
   #ws: WebSocket | null = null;
   #playerIdx: number | null;
+  #token: string | undefined;
   #render: () => void;
   feed: FeedState = {
     state: null,
@@ -30,8 +31,9 @@ export class GameSocket {
     connected: false,
   };
 
-  constructor(playerIdx: number | null, render: () => void) {
+  constructor(playerIdx: number | null, render: () => void, token?: string) {
     this.#playerIdx = playerIdx;
+    this.#token = token;
     this.#render = render;
   }
 
@@ -41,7 +43,7 @@ export class GameSocket {
     this.#ws = ws;
     ws.onopen = () => {
       this.feed.connected = true;
-      ws.send(JSON.stringify({ type: "hello", playerIdx: this.#playerIdx }));
+      ws.send(JSON.stringify({ type: "hello", playerIdx: this.#playerIdx, token: this.#token }));
       this.#render();
     };
     ws.onclose = () => {

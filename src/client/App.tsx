@@ -8,18 +8,35 @@ import { CardView } from "./CardList";
 import { EventLog, PromptsPanel } from "./Panels";
 import { PlayerPanel, ScoreBoard } from "./PlayerPanel";
 import { GameSocket } from "./net";
+import { ReplayApp } from "./Replay";
 
-function routePlayer(): number | null {
+/** Seat routing: /player/:idx (local play) or the coworld browser-client
+ *  route /client/player?slot=N&token=… (token unlocks the seat's hand). */
+function routeSeat(): { playerIdx: number | null; token?: string } {
   const match = /^\/player\/(\d+)/.exec(location.pathname);
-  return match ? Number(match[1]) : null;
+  if (match) return { playerIdx: Number(match[1]) };
+  if (location.pathname === "/client/player") {
+    const params = new URLSearchParams(location.search);
+    const slot = Number(params.get("slot"));
+    if (Number.isInteger(slot) && slot >= 0) {
+      return { playerIdx: slot, token: params.get("token") ?? undefined };
+    }
+  }
+  return { playerIdx: null };
 }
 
 export function App() {
+  if (location.pathname === "/client/replay") return <ReplayApp />;
+  return <GameApp />;
+}
+
+function GameApp() {
   const [, setTick] = useState(0);
-  const myIdx = routePlayer();
+  const seat = routeSeat();
+  const myIdx = seat.playerIdx;
   const socketRef = useRef<GameSocket | null>(null);
   if (!socketRef.current) {
-    socketRef.current = new GameSocket(myIdx, () => setTick((t) => t + 1));
+    socketRef.current = new GameSocket(myIdx, () => setTick((t) => t + 1), seat.token);
   }
   const socket = socketRef.current;
   useEffect(() => {
@@ -90,14 +107,16 @@ export function App() {
             </a>
           ))}
         </nav>
-        <div className="header-controls">
-          <button className="mini" onClick={() => (status.paused ? socket.resume() : socket.pause())}>
-            {status.paused ? "▶ resume" : "⏸ pause"}
-          </button>
-          <button className="mini" onClick={() => socket.reset()} title="new game, next seed">
-            ↻ new game
-          </button>
-        </div>
+        {!status.readOnly && (
+          <div className="header-controls">
+            <button className="mini" onClick={() => (status.paused ? socket.resume() : socket.pause())}>
+              {status.paused ? "▶ resume" : "⏸ pause"}
+            </button>
+            <button className="mini" onClick={() => socket.reset()} title="new game, next seed">
+              ↻ new game
+            </button>
+          </div>
+        )}
       </header>
 
       {lastError && (
@@ -133,7 +152,9 @@ export function App() {
                   ? state.currentPlayer === p.idx && !status.finished
                   : state.toFeed.includes(p.idx)
               }
-              onControllerChange={(c) => socket.setController(p.idx, c)}
+              onControllerChange={
+                status.readOnly ? undefined : (c) => socket.setController(p.idx, c)
+              }
               compactFarm={myIdx !== null && p.idx !== myIdx}
             />
           ))}

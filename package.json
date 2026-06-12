@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:web": "vite build",
+    "build:coworld-manifest": "node scripts/build-coworld-manifest.mjs",
+    "coworld": "tsx src/server/coworld-main.ts",
     "preview": "npm run build:web && tsx src/cli-serve.ts --port 4173",
     "test": "vitest run",
     "test:watch": "vitest",

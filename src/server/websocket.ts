@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { Server } from "node:http";
+import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { GameRunner } from "./game-runner";
 import { redactState } from "./redact";
@@ -12,18 +13,25 @@ interface ClientInfo {
   playerIdx: number | null;
 }
 
+export interface SocketHubOpts {
+  /** Tournament (coworld) mode: reject every state-changing command. */
+  readOnly?: boolean;
+  /** When set, hello must present the matching token to claim a seat (and
+   *  see that seat's hand); otherwise the client spectates. */
+  seatTokens?: string[];
+}
+
 export class SocketHub {
   #clients = new Set<ClientInfo>();
   #runner: GameRunner;
   #prompts: ActPromptEntry[] = [];
+  #opts: SocketHubOpts;
+  #wss = new WebSocketServer({ noServer: true });
 
-  constructor(runner: GameRunner) {
+  constructor(runner: GameRunner, opts: SocketHubOpts = {}) {
     this.#runner = runner;
-  }
-
-  attach(server: Server): void {
-    const wss = new WebSocketServer({ server, path: "/ws" });
-    wss.on("connection", (socket: WebSocket, _req: IncomingMessage) => {
+    this.#opts = opts;
+    this.#wss.on("connection", (socket: WebSocket) => {
       const client: ClientInfo = { socket, playerIdx: null };
       this.#clients.add(client);
       this.#runner.clientCount = this.#clients.size;
@@ -38,10 +46,33 @@ export class SocketHub {
     });
   }
 
+  /** Standalone-server mode: own the /ws upgrade path. */
+  attach(server: Server): void {
+    server.on("upgrade", (req, socket, head) => {
+      const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+      if (pathname === "/ws" || pathname === "/global") {
+        this.upgrade(req, socket, head);
+      } else {
+        socket.destroy();
+      }
+    });
+  }
+
+  /** Adopt an HTTP upgrade routed here by an external upgrade router. */
+  upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    this.#wss.handleUpgrade(req, socket, head, (ws) => {
+      this.#wss.emit("connection", ws, req);
+    });
+  }
+
   recordPrompt(entry: ActPromptEntry): void {
     this.#prompts.push(entry);
     if (this.#prompts.length > 200) this.#prompts.shift();
     this.#broadcast({ type: "actPrompt", entry });
+  }
+
+  #status() {
+    return { ...this.#runner.status(), readOnly: this.#opts.readOnly ?? false };
   }
 
   #send(client: ClientInfo, message: ServerMessage): void {
@@ -53,7 +84,7 @@ export class SocketHub {
   #sendSnapshot(client: ClientInfo): void {
     const { state, handSizes } = redactState(this.#runner.state, client.playerIdx);
     this.#send(client, { type: "state", state, handSizes });
-    this.#send(client, { type: "status", status: this.#runner.status() });
+    this.#send(client, { type: "status", status: this.#status() });
     for (const entry of this.#prompts.slice(-50)) {
       this.#send(client, { type: "actPrompt", entry });
     }
@@ -68,7 +99,11 @@ export class SocketHub {
   }
 
   broadcastStatus(): void {
-    this.#broadcast({ type: "status", status: this.#runner.status() });
+    this.#broadcast({ type: "status", status: this.#status() });
+  }
+
+  closeAll(): void {
+    for (const client of this.#clients) client.socket.close(1000, "episode over");
   }
 
   #broadcast(message: ServerMessage): void {
@@ -83,12 +118,34 @@ export class SocketHub {
       this.#send(client, { type: "error", message: `bad message: ${String(err)}` });
       return;
     }
+    if (this.#opts.readOnly && message.type !== "hello") {
+      this.#send(client, {
+        type: "error",
+        message: "this table is read-only: seats are played by tournament policies",
+      });
+      return;
+    }
     try {
       switch (message.type) {
-        case "hello":
+        case "hello": {
+          const tokens = this.#opts.seatTokens;
+          if (
+            message.playerIdx !== null &&
+            tokens &&
+            tokens[message.playerIdx] !== message.token
+          ) {
+            client.playerIdx = null;
+            this.#sendSnapshot(client);
+            this.#send(client, {
+              type: "error",
+              message: "invalid seat token: spectating instead",
+            });
+            break;
+          }
           client.playerIdx = message.playerIdx;
           this.#sendSnapshot(client);
           break;
+        }
         case "place":
           this.#requireSeat(client, message.playerIdx);
           this.#runner.humanPlace(message.playerIdx, message.placement);

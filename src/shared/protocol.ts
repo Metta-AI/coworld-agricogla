@@ -2,7 +2,9 @@ import { z } from "zod";
 import { GameState } from "./engine/types";
 import { feedDecisionSchema, placementSchema } from "./engine/placements";
 
-export type Controller = "human" | "scripted" | "llm";
+/** "remote" seats are driven by external policy containers over /player
+ *  (coworld tournament mode) and cannot be selected from the UI. */
+export type Controller = "human" | "scripted" | "llm" | "remote";
 
 export interface HandSizes {
   occupations: number;
@@ -18,6 +20,8 @@ export interface ServerStatus {
   paused: boolean;
   finished: boolean;
   clients: number;
+  /** Tournament (coworld) mode: clients spectate; all commands rejected. */
+  readOnly: boolean;
 }
 
 export interface ActPromptWire {
@@ -33,12 +37,15 @@ export type ServerMessage =
   | { type: "actPrompt"; entry: ActPromptWire }
   | { type: "error"; message: string };
 
+// Clients may switch seats among these; "remote" is server-assigned only.
 export const controllerSchema = z.enum(["human", "scripted", "llm"]);
 
 export const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("hello"),
     playerIdx: z.number().int().min(0).max(3).nullable(),
+    /** Seat token, required to see your own hand in tournament mode. */
+    token: z.string().optional(),
   }),
   z.object({
     type: z.literal("place"),

@@ -75,6 +75,28 @@ nano-banana (Gemini image generation) and post-processed by
 generations land in `generated_imgs/` (gitignored); re-run the script after
 regenerating any of them.
 
+## Coworld (Softmax tournaments)
+
+This repo doubles as a Softmax **Coworld**: a Dockerized game container that
+runs head-to-head (2-player) tournament episodes against remote policy
+containers. The coworld server (`src/server/coworld-main.ts`) implements the
+Coworld game contract — `COGAME_CONFIG_URI` config, `/healthz`,
+`/player?slot&token` WebSockets (engine-validated decisions, 3 attempts,
+scripted fallback on timeout/disconnect), `/client/global` live viewing, a
+browser replay viewer at `/client/replay`, and results/replay artifacts.
+`src/agents/coworld-player.ts` is the bundled scripted baseline policy.
+
+```bash
+npm run build:coworld-manifest   # regenerate coworld_manifest_template.json from docs/coworld/
+uvx --from 'coworld[auth]' coworld build compose.yaml coworld_manifest_template.json <version> tmp/coworld_manifest.json
+uvx --from 'coworld[auth]' coworld certify tmp/coworld_manifest.json
+uvx --from 'coworld[auth]' coworld upload-coworld tmp/coworld_manifest.json
+```
+
+The wire protocol for policy authors lives in
+[docs/coworld/player_protocol.md](docs/coworld/player_protocol.md); the
+manifest embeds it (and the rules overview) as inline docs.
+
 ## Digital-port notes
 
 - Animal housing is auto-packed (rearrangement is free in the rules); animals
