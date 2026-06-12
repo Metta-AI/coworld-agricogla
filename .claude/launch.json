@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "agricola",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview"],
+      "port": 4173
+    },
+    {
+      "name": "agricola-llm",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "AWS_PROFILE=softmax-org AWS_REGION=us-west-2 exec npm run preview -- --agents llm,llm,scripted,scripted"
+      ],
+      "port": 4173
+    }
+  ]
+}
