@@ -5,7 +5,7 @@
       "name": "agricola",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview"],
-      "port": 4173
+      "autoPort": true
     },
     {
       "name": "agricola-llm",
@@ -14,7 +14,7 @@
         "-c",
         "AWS_PROFILE=softmax-org AWS_REGION=us-west-2 exec npm run preview -- --agents llm,llm,scripted,scripted"
       ],
-      "port": 4173
+      "autoPort": true
     },
     {
       "name": "agricola-coworld-live",

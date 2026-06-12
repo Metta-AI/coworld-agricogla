@@ -12,7 +12,15 @@ interface ServeOptions {
 }
 
 export function parseServeArgs(argv: string[]): ServeOptions {
-  const opts: ServeOptions = { port: 8484, seed: 1, players: 4, controllers: [], pace: 800 };
+  // Preview/launch tooling assigns a port via the PORT env var.
+  const envPort = Number(process.env.PORT);
+  const opts: ServeOptions = {
+    port: Number.isFinite(envPort) && envPort > 0 ? envPort : 8484,
+    seed: 1,
+    players: 4,
+    controllers: [],
+    pace: 800,
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     switch (arg) {
