@@ -193,15 +193,11 @@ export class GameRunner {
     } finally {
       this.#ticking = false;
     }
-    // A controller change or resume may have queued more work mid-loop.
+    // A controller change, resume or reset may have queued more work while the
+    // loop was draining (their tick() calls no-op when #ticking is set).
     const pending = this.pendingPlayer();
-    if (
-      pending !== null &&
-      !this.#paused &&
-      this.#controllers[pending] !== "human" &&
-      generation === this.#generation
-    ) {
-      void this.tick();
+    if (pending !== null && !this.#paused && this.#controllers[pending] !== "human") {
+      setTimeout(() => void this.tick(), 0);
     }
   }
 }

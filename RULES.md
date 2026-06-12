@@ -272,7 +272,7 @@ Plus:
 
 ## 10. Occupations & minor improvements
 
-The full game ships with a deck of **48 occupations** and **48 minor
+The full game ships with a deck of **51 occupations** and **48 minor
 improvements**, every one fully implemented (see `src/shared/engine/cards/`).
 The deck reproduces the canonical archetypes of the base decks — resource
 bonuses on action spaces, plows, baking/cooking engines, building discounts,
