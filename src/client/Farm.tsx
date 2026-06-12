@@ -1,7 +1,15 @@
 import { useMemo } from "react";
 import { computePastures } from "../shared/engine/farmyard";
 import { AnimalType, COLS, PlayerState, ROWS, spaceIndex } from "../shared/engine/types";
-import { GOOD_ICONS } from "./icons";
+import { STABLE_SRC, TOKEN_SRC } from "./Token";
+
+const TILE_GRASS = "/art/tile-grass.png";
+const TILE_FIELD = "/art/tile-field.png";
+const TILE_ROOM: Record<string, string> = {
+  wood: "/art/tile-room-wood.png",
+  clay: "/art/tile-room-clay.png",
+  stone: "/art/tile-room-stone.png",
+};
 
 const CELL = 64;
 const GAP = 8;
@@ -97,6 +105,16 @@ export function Farm({
       style={{ width: compact ? width * 0.72 : width, height: compact ? height * 0.72 : height }}
     >
       <rect x="0" y="0" width={width} height={height} rx="10" className="farm-bg" />
+      <defs>
+        {player.spaces.map((_, i) => {
+          const { x, y } = cellXY(i);
+          return (
+            <clipPath key={i} id={`cell-${player.idx}-${i}`}>
+              <rect x={x} y={y} width={CELL} height={CELL} rx="7" />
+            </clipPath>
+          );
+        })}
+      </defs>
       {player.spaces.map((sp, i) => {
         const { x, y } = cellXY(i);
         const inPasture = layout.pastureCells.has(i);
@@ -110,6 +128,12 @@ export function Farm({
               : inPasture
                 ? "cell pasture"
                 : "cell empty";
+        const tile =
+          sp.kind === "room"
+            ? TILE_ROOM[player.houseMaterial]!
+            : sp.kind === "field"
+              ? TILE_FIELD
+              : TILE_GRASS;
         const animal = animalForCell.get(i);
         return (
           <g
@@ -117,35 +141,55 @@ export function Farm({
             className={`${cls}${selectable ? " selectable" : ""}`}
             onClick={selectable && onCellClick ? () => onCellClick(i) : undefined}
           >
-            <rect x={x} y={y} width={CELL} height={CELL} rx="7" />
-            {sp.kind === "room" && (
-              <text x={x + CELL / 2} y={y + CELL / 2 + 7} className="cell-icon">
-                🏠
-              </text>
+            <image
+              href={tile}
+              x={x}
+              y={y}
+              width={CELL}
+              height={CELL}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#cell-${player.idx}-${i})`}
+            />
+            {inPasture && (
+              <rect x={x} y={y} width={CELL} height={CELL} rx="7" className="pasture-tint" />
             )}
-            {sp.kind === "field" && (
+            <rect x={x} y={y} width={CELL} height={CELL} rx="7" className="cell-frame" />
+            {sp.kind === "field" && sp.crop && (
               <>
-                <text x={x + CELL / 2} y={y + CELL / 2 + (sp.crop ? 0 : 7)} className="cell-icon">
-                  {sp.crop ? (sp.crop === "grain" ? "🌾" : "🥕") : "🟫"}
+                <image
+                  href={TOKEN_SRC[sp.crop]}
+                  x={x + CELL / 2 - 16}
+                  y={y + 6}
+                  width={32}
+                  height={36}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+                <text x={x + CELL / 2} y={y + CELL - 7} className="cell-count">
+                  ×{sp.cropCount}
                 </text>
-                {sp.crop && (
-                  <text x={x + CELL / 2} y={y + CELL - 8} className="cell-count">
-                    ×{sp.cropCount}
-                  </text>
-                )}
               </>
             )}
             {sp.stable && (
-              <text x={x + CELL - 14} y={y + 18} className="cell-stable">
-                🐎
-              </text>
+              <image
+                href={STABLE_SRC}
+                x={x + CELL - 26}
+                y={y + 3}
+                width={24}
+                height={26}
+                preserveAspectRatio="xMidYMid meet"
+              />
             )}
             {animal && (
               <>
-                <text x={x + CELL / 2} y={y + CELL / 2 + 2} className="cell-icon">
-                  {GOOD_ICONS[animal.type]}
-                </text>
-                <text x={x + CELL / 2} y={y + CELL - 8} className="cell-count">
+                <image
+                  href={TOKEN_SRC[animal.type]}
+                  x={x + CELL / 2 - 19}
+                  y={y + 6}
+                  width={38}
+                  height={36}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+                <text x={x + CELL / 2} y={y + CELL - 7} className="cell-count">
                   ×{animal.count}
                 </text>
               </>

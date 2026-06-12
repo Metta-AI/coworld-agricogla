@@ -3,7 +3,7 @@ import { GameState, PlayerState, RESOURCES } from "../shared/engine/types";
 import { Controller, HandSizes } from "../shared/protocol";
 import { CardBacks, CardView } from "./CardList";
 import { Farm } from "./Farm";
-import { GOOD_ICONS } from "./icons";
+import { Token } from "./Token";
 
 export interface PlayerPanelProps {
   state: GameState;
@@ -78,7 +78,7 @@ export function PlayerPanel({
             {RESOURCES.map((r) =>
               player.resources[r] > 0 ? (
                 <span key={r} className="chip" title={r}>
-                  {GOOD_ICONS[r]}
+                  <Token good={r} size={18} />
                   {player.resources[r]}
                 </span>
               ) : null,
@@ -86,7 +86,7 @@ export function PlayerPanel({
             {(["sheep", "boar", "cattle"] as const).map((a) =>
               player.animals[a] > 0 ? (
                 <span key={a} className="chip" title={a}>
-                  {GOOD_ICONS[a]}
+                  <Token good={a} size={18} />
                   {player.animals[a]}
                 </span>
               ) : null,

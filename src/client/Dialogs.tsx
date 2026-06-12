@@ -15,7 +15,8 @@ import { GameState } from "../shared/engine/types";
 import { GoodsChips } from "./ActionBoard";
 import { CardView } from "./CardList";
 import { Farm } from "./Farm";
-import { GOOD_ICONS } from "./icons";
+import { Token } from "./Token";
+import { Good } from "../shared/engine/types";
 
 export interface DialogProps {
   spaceId: string;
@@ -87,7 +88,8 @@ function FarmExpansionDialog(props: DialogProps) {
           className={mode === "stables" ? "tab active" : "tab"}
           onClick={() => setMode("stables")}
         >
-          Stables 🪵2 each ({props.choices.stablesLeft - stables.length} left)
+          Stables <Token good="wood" size={15} />2 each ({props.choices.stablesLeft - stables.length}{" "}
+          left)
         </button>
       </div>
       <Farm
@@ -339,14 +341,16 @@ function FencesDialog(props: DialogProps & { withRenovate?: boolean }) {
   return (
     <Modal title={props.withRenovate ? "Renovate, then Fences" : "Build Fences"}>
       <p className="dialog-hint">
-        Click edges to plan fences. Every fence must enclose a pasture. Cost: 🪵{cost}
+        Click edges to plan fences. Every fence must enclose a pasture. Cost:{" "}
+        <Token good="wood" size={15} />
+        {cost}
         {freeFences > 0 ? ` (${freeFences} free)` : ""} — wood: {me.resources.wood}
         {props.withRenovate ? " (after renovating)" : ""}
       </p>
       <div className="dialog-row">
         {props.choices.fencePlans.slice(0, 5).map((p, i) => (
           <button key={i} className="mini" onClick={() => setEdges(new Set(p.edges))}>
-            {p.cells.length}-cell ({p.cost}🪵)
+            {p.cells.length}-cell ({p.cost} wood)
           </button>
         ))}
         <button className="mini" onClick={() => setEdges(new Set())}>
@@ -612,7 +616,7 @@ export function FeedDialog({ state, playerIdx, choices, onSubmit, onAuto }: Feed
           const k = key(opt.via, opt.good);
           return (
             <label key={k}>
-              {GOOD_ICONS[opt.good as keyof typeof GOOD_ICONS]} {opt.good} → {opt.foodEach} food (
+              <Token good={opt.good as Good} size={18} /> {opt.good} → {opt.foodEach} food (
               {opt.name}, max {opt.max}):{" "}
               <input
                 type="number"

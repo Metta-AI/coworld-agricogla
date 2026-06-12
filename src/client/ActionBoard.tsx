@@ -1,7 +1,7 @@
 import { roundCards, spaceDef, stageOfRound, HARVEST_ROUNDS } from "../shared/engine/boards";
 import { ActionOption } from "../shared/engine/legal";
-import { GameState, Goods } from "../shared/engine/types";
-import { GOOD_ICONS } from "./icons";
+import { GameState, Good, Goods } from "../shared/engine/types";
+import { Token } from "./Token";
 
 export function GoodsChips({ goods }: { goods: Goods }) {
   const entries = Object.entries(goods).filter(([, n]) => (n ?? 0) > 0);
@@ -10,7 +10,7 @@ export function GoodsChips({ goods }: { goods: Goods }) {
     <span className="goods-chips">
       {entries.map(([g, n]) => (
         <span key={g} className="chip" title={g}>
-          {GOOD_ICONS[g as keyof typeof GOOD_ICONS]}
+          <Token good={g as Good} size={18} />
           {n}
         </span>
       ))}

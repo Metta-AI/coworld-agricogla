@@ -66,6 +66,15 @@ npm run smoke       # Playwright (builds web, starts server on :4173)
 npm run dev         # vite dev server (proxies /ws to :8484 — run `npm run serve` too)
 ```
 
+## Artwork
+
+All visual assets in `public/art/` (goods/animal tokens, farm tiles, table and
+parchment textures) are original images generated for this project with
+nano-banana (Gemini image generation) and post-processed by
+`scripts/process-art.py` (background matting, cropping, resizing). Raw
+generations land in `generated_imgs/` (gitignored); re-run the script after
+regenerating any of them.
+
 ## Digital-port notes
 
 - Animal housing is auto-packed (rearrangement is free in the rules); animals

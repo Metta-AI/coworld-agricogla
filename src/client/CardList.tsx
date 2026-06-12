@@ -1,6 +1,6 @@
 import { cardById } from "../shared/engine/cards";
-import { Goods } from "../shared/engine/types";
-import { GOOD_ICONS } from "./icons";
+import { Good, Goods } from "../shared/engine/types";
+import { Token } from "./Token";
 
 function CostLine({ cost }: { cost: Goods }) {
   const entries = Object.entries(cost).filter(([, n]) => (n ?? 0) > 0);
@@ -8,8 +8,8 @@ function CostLine({ cost }: { cost: Goods }) {
   return (
     <span className="card-cost">
       {entries.map(([g, n]) => (
-        <span key={g}>
-          {GOOD_ICONS[g as keyof typeof GOOD_ICONS]}
+        <span key={g} className="cost-part">
+          <Token good={g as Good} size={15} />
           {n}
         </span>
       ))}
