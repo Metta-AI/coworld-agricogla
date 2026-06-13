@@ -12,6 +12,7 @@ const doc = (name) => readFileSync(join(root, "docs", "coworld", name)).toString
 const REPO_URL = "https://github.com/Metta-AI/cogame-agricogla";
 const GAME_RUN = ["npx", "tsx", "src/server/coworld-main.ts"];
 const PLAYER_RUN = ["npx", "tsx", "src/agents/coworld-player.ts"];
+const LLM_PLAYER_RUN = ["npx", "tsx", "src/agents/coworld-llm-player.ts"];
 
 const playerSlots = (names) => names.map((name) => ({ name }));
 
@@ -128,6 +129,25 @@ const manifest = {
       description:
         "Heuristic baseline: values food security, family growth and board coverage; " +
         "the same policy backs the in-game scripted fallback.",
+    },
+    {
+      id: "llm-baseline",
+      name: "LLM Baseline (Bedrock)",
+      type: "player",
+      image: "{{AGRICOGLA_IMAGE}}",
+      run: LLM_PLAYER_RUN,
+      source_url: REPO_URL,
+      // No Bedrock env here on purpose: AGRICOGLA_BEDROCK_MODEL would take
+      // precedence over a hosted `upload-policy --bedrock-model` (BEDROCK_MODEL)
+      // selection. The player reads sensible defaults (claude-haiku-4-5,
+      // us-west-2) and falls back to the scripted heuristic without credentials.
+      description:
+        "Bedrock tool-use agent (default model claude-haiku-4-5, region us-west-2): reads the " +
+        "full visible state and legal options and answers via engine-validated tool calls, " +
+        "falling back to the scripted heuristic on any timeout or error. Needs Bedrock " +
+        "credentials — locally via `--use-bedrock`, hosted via " +
+        "`upload-policy --use-bedrock --bedrock-model …`; without them every turn uses the " +
+        "scripted fallback.",
     },
   ],
   commissioner: [
