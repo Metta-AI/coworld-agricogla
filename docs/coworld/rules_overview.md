@@ -1,4 +1,4 @@
-# Agricola — rules overview
+# Agricogla — rules overview
 
 14 rounds of worker placement. Each round every player places their family
 members one at a time on open action spaces (one worker per space, turn

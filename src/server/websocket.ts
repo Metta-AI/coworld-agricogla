@@ -6,7 +6,17 @@ import { GameRunner } from "./game-runner";
 import { redactState } from "./redact";
 import { ActPromptEntry } from "../agents/types";
 import { RuleError } from "../shared/engine/apply";
-import { ClientMessage, clientMessageSchema, ServerMessage } from "../shared/protocol";
+import { ChatMessage, ClientMessage, clientMessageSchema, ServerMessage } from "../shared/protocol";
+
+/** A seat sees its own DMs; the global observer (null) sees every DM. */
+function chatVisibleTo(message: ChatMessage, playerIdx: number | null): boolean {
+  return (
+    message.to === null ||
+    playerIdx === null ||
+    playerIdx === message.from ||
+    playerIdx === message.to
+  );
+}
 
 interface ClientInfo {
   socket: WebSocket;
@@ -92,6 +102,20 @@ export class SocketHub {
     for (const entry of this.#prompts.slice(-50)) {
       this.#send(client, { type: "actPrompt", entry });
     }
+    for (const message of this.#runner.chatLog()) {
+      if (chatVisibleTo(message, client.playerIdx)) {
+        this.#send(client, { type: "chat", message });
+      }
+    }
+  }
+
+  /** Fan out a table-talk message, hiding DMs from non-participant seats. */
+  broadcastChat(message: ChatMessage): void {
+    for (const client of this.#clients) {
+      if (chatVisibleTo(message, client.playerIdx)) {
+        this.#send(client, { type: "chat", message });
+      }
+    }
   }
 
   broadcastState(): void {
@@ -160,6 +184,14 @@ export class SocketHub {
           break;
         case "setController":
           this.#runner.setController(message.playerIdx, message.controller);
+          break;
+        case "setGuidance":
+          this.#requireSeat(client, message.playerIdx);
+          this.#runner.setGuidance(message.playerIdx, message.text);
+          break;
+        case "chat":
+          this.#requireSeat(client, message.from);
+          this.#runner.postChat(message.from, message.to, message.text);
           break;
         case "pause":
           this.#runner.pause();

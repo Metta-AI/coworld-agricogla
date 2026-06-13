@@ -1,6 +1,6 @@
 # cogame-agricogla
 
-A full web port of the board game **Agricola** (1–4 players): complete game
+A full web port of the board game **Agricogla** (1–4 players): complete game
 engine, a board-game-styled web UI, and per-player autopilots that can be
 scripted or driven by an LLM on AWS Bedrock. Built in the style of the other
 `cogame-*` projects (Vite + React + TypeScript, express + ws, zod, vitest,
@@ -41,8 +41,8 @@ engine before submission.
 AWS_PROFILE=... AWS_REGION=us-west-2 npm run serve -- --agents llm,llm,llm,llm
 ```
 
-- Model: `AGRICOLA_BEDROCK_MODEL` (default `us.anthropic.claude-haiku-4-5-20251001-v1:0`)
-- Region: `AGRICOLA_BEDROCK_REGION` / `AWS_REGION` (default `us-west-2`)
+- Model: `AGRICOGLA_BEDROCK_MODEL` (default `us.anthropic.claude-haiku-4-5-20251001-v1:0`)
+- Region: `AGRICOGLA_BEDROCK_REGION` / `AWS_REGION` (default `us-west-2`)
 - The agent gets the full visible state and its legal options, must answer via
   a `submit_placement` / `submit_feeding` tool call, gets up to 3 attempts with
   engine-validated feedback, and falls back to the scripted policy if it keeps

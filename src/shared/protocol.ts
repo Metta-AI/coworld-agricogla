@@ -17,6 +17,10 @@ export interface ServerStatus {
   currentPlayer: number;
   toFeed: number[];
   controllers: Controller[];
+  /** Per-seat autopilot guidance directive prepended to the LLM prompt. */
+  guidance: string[];
+  /** Seat whose decision an agent is currently computing, or null. */
+  thinking: number | null;
   paused: boolean;
   finished: boolean;
   clients: number;
@@ -31,10 +35,21 @@ export interface ActPromptWire {
   content: string;
 }
 
+/** Table talk. `to: null` is a public broadcast; otherwise a direct message
+ *  to that seat (the global observer sees every DM; a seat sees only its own). */
+export interface ChatMessage {
+  seq: number;
+  round: number;
+  from: number;
+  to: number | null;
+  text: string;
+}
+
 export type ServerMessage =
   | { type: "state"; state: GameState; handSizes: HandSizes[] }
   | { type: "status"; status: ServerStatus }
   | { type: "actPrompt"; entry: ActPromptWire }
+  | { type: "chat"; message: ChatMessage }
   | { type: "error"; message: string };
 
 // Clients may switch seats among these; "remote" is server-assigned only.
@@ -61,6 +76,19 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("setController"),
     playerIdx: z.number().int().min(0).max(3),
     controller: controllerSchema,
+  }),
+  z.object({
+    type: z.literal("setGuidance"),
+    playerIdx: z.number().int().min(0).max(3),
+    text: z.string().max(2000),
+  }),
+  z.object({
+    type: z.literal("chat"),
+    /** The seat you are sending as; must match your claimed seat. */
+    from: z.number().int().min(0).max(3),
+    /** null = public broadcast; otherwise the recipient seat. */
+    to: z.number().int().min(0).max(3).nullable(),
+    text: z.string().min(1).max(500),
   }),
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),

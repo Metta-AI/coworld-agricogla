@@ -1,8 +1,8 @@
 # Builds the images referenced by coworld_manifest_template.json.
-# Service names map to manifest placeholders: agricola -> {{AGRICOLA_IMAGE}},
+# Service names map to manifest placeholders: agricogla -> {{AGRICOGLA_IMAGE}},
 # commissioner -> {{COMMISSIONER_IMAGE}}.
 services:
-  agricola:
+  agricogla:
     image: cogame-agricogla:latest
     platform: linux/amd64
     build:

@@ -1,4 +1,4 @@
-# Agricola — Rules Reference
+# Agricogla — Rules Reference
 
 This document is the complete, systematic rules specification implemented by the
 engine in `src/shared/engine/`. It is written in our own words; the mechanics

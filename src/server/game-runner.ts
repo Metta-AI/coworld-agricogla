@@ -11,7 +11,8 @@ import {
 import { newGame } from "../shared/engine/game";
 import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
-import { Controller, ServerStatus } from "../shared/protocol";
+import { ChatMessage, Controller, ServerStatus } from "../shared/protocol";
+import { dmReply, roundQuip } from "./chatter";
 
 export interface GameRunnerOpts {
   seed: number;
@@ -31,6 +32,8 @@ export interface GameRunnerOpts {
   onError?: (err: unknown) => void;
   /** Called after every applied decision, in order; feeds the replay log. */
   onAction?: (action: AppliedAction) => void;
+  /** Called for every table-talk message (human or bot) for fan-out. */
+  onChat?: (message: ChatMessage) => void;
 }
 
 export type AppliedAction =
@@ -42,6 +45,10 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export class GameRunner {
   #state: GameState;
   #controllers: Controller[];
+  #guidance: string[];
+  #chat: ChatMessage[] = [];
+  #chatSeq = 0;
+  #thinking: number | null = null;
   #agents = new Map<string, Agent>();
   #opts: GameRunnerOpts;
   #paused = false;
@@ -52,6 +59,7 @@ export class GameRunner {
   constructor(opts: GameRunnerOpts) {
     this.#opts = opts;
     this.#controllers = [...opts.controllers];
+    this.#guidance = Array.from({ length: opts.numPlayers }, () => "");
     this.#paused = opts.startPaused ?? false;
     this.#state = newGame({ seed: opts.seed, numPlayers: opts.numPlayers, names: opts.names });
     if (this.#controllers.length !== opts.numPlayers) {
@@ -63,6 +71,10 @@ export class GameRunner {
     return this.#state;
   }
 
+  chatLog(): readonly ChatMessage[] {
+    return this.#chat;
+  }
+
   status(): ServerStatus {
     return {
       round: this.#state.round,
@@ -70,11 +82,45 @@ export class GameRunner {
       currentPlayer: this.#state.currentPlayer,
       toFeed: this.#state.toFeed,
       controllers: [...this.#controllers],
+      guidance: [...this.#guidance],
+      thinking: this.#thinking,
       paused: this.#paused,
       finished: this.#state.phase === "finished",
       clients: this.clientCount,
       readOnly: false, // SocketHub overrides in tournament mode.
     };
+  }
+
+  setGuidance(playerIdx: number, text: string): void {
+    if (playerIdx < 0 || playerIdx >= this.#guidance.length) {
+      throw new Error(`no player ${playerIdx}`);
+    }
+    this.#guidance[playerIdx] = text;
+    this.#opts.onUpdate?.();
+  }
+
+  /** Record + fan out a table-talk message. Bots auto-reply to DMs they get. */
+  postChat(from: number, to: number | null, text: string): ChatMessage {
+    const message: ChatMessage = { seq: this.#chatSeq++, round: this.#state.round, from, to, text };
+    this.#chat.push(message);
+    if (this.#chat.length > 500) this.#chat.shift();
+    this.#opts.onChat?.(message);
+    // A human DM to a bot seat earns a templated reply a beat later.
+    if (
+      to !== null &&
+      to !== from &&
+      this.#controllers[from] === "human" &&
+      this.#controllers[to] !== "human" &&
+      this.#state.phase !== "finished"
+    ) {
+      const generation = this.#generation;
+      setTimeout(() => {
+        if (generation === this.#generation && this.#state.phase !== "finished") {
+          this.postChat(to, from, dmReply());
+        }
+      }, 900 + Math.random() * 800);
+    }
+    return message;
   }
 
   #agentFor(playerIdx: number): Agent {
@@ -131,6 +177,10 @@ export class GameRunner {
         this.#controllers[i] ?? "scripted",
       );
     }
+    this.#guidance = Array.from({ length: players }, (_, i) => this.#guidance[i] ?? "");
+    this.#chat = [];
+    this.#chatSeq = 0;
+    this.#thinking = null;
     this.#agents.clear();
     this.#state = newGame({
       seed: seed ?? this.#state.seed + 1,
@@ -142,8 +192,20 @@ export class GameRunner {
   }
 
   #applyPlace(playerIdx: number, placement: Placement): void {
+    const beforeRound = this.#state.round;
     this.#state = applyPlacement(this.#state, playerIdx, placement).state;
     this.#opts.onAction?.({ playerIdx, kind: "place", placement });
+    if (this.#state.round > beforeRound && this.#state.phase === "work") this.#maybeChatter();
+  }
+
+  /** On a round boundary, a random bot seat may post a public quip. */
+  #maybeChatter(): void {
+    if (Math.random() > 0.6) return;
+    const bots = this.#controllers
+      .map((c, i) => (c !== "human" ? i : -1))
+      .filter((i) => i >= 0);
+    if (bots.length === 0) return;
+    this.postChat(bots[Math.floor(Math.random() * bots.length)]!, null, roundQuip(this.#state));
   }
 
   #applyFeed(playerIdx: number, decision: FeedDecision): void {
@@ -183,6 +245,13 @@ export class GameRunner {
         if (this.#controllers[pending] === "human") break;
         const agent = this.#agentFor(pending);
         const view = buildView(this.#state, pending);
+        view.guidance = this.#guidance[pending] || undefined;
+        // Signal "thinking" only for the slow controllers the UI cares about.
+        const slow = this.#controllers[pending] === "llm" || this.#controllers[pending] === "remote";
+        if (slow && this.#thinking !== pending) {
+          this.#thinking = pending;
+          this.#opts.onUpdate?.();
+        }
         if (this.#state.phase === "work") {
           let placement: Placement;
           try {
@@ -219,6 +288,10 @@ export class GameRunner {
       }
     } finally {
       this.#ticking = false;
+      if (this.#thinking !== null) {
+        this.#thinking = null;
+        this.#opts.onUpdate?.();
+      }
     }
     // A controller change, resume or reset may have queued more work while the
     // loop was draining (their tick() calls no-op when #ticking is set).

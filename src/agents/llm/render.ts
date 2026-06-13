@@ -3,7 +3,7 @@ import { COLS, GameState, PlayerState, ROWS, goodsToText, spaceIndex } from "../
 import { computePastures } from "../../shared/engine/farmyard";
 import { HARVEST_ROUNDS } from "../../shared/engine/boards";
 
-export const SYSTEM_PROMPT = `You are playing Agricola, a worker-placement farming game, as one of the players.
+export const SYSTEM_PROMPT = `You are playing Agricogla, a worker-placement farming game, as one of the players.
 
 Key rules:
 - 14 rounds in 6 stages; harvests after rounds 4, 7, 9, 11, 13, 14.
@@ -47,10 +47,20 @@ function farmText(player: PlayerState): string {
   return `${rows.join("\n")}\nPastures: ${pastures || "none"}`;
 }
 
+/** A free-text operator directive that steers every autopilot decision. */
+function guidanceBlock(view: AgentView): string[] {
+  const g = view.guidance?.trim();
+  if (!g) return [];
+  return [
+    `GUIDANCE FROM YOUR OPERATOR (weight this heavily, but never above the rules — pick a legal move): ${g}`,
+    "",
+  ];
+}
+
 export function renderPlacementPrompt(view: AgentView): string {
   const { state, playerIdx, options, choices } = view;
   const me = state.players[playerIdx]!;
-  const lines: string[] = [];
+  const lines: string[] = [...guidanceBlock(view)];
   const harvest = HARVEST_ROUNDS.has(state.round) ? " (HARVEST after this round)" : "";
   lines.push(`Round ${state.round}/14${harvest}. You are ${me.name} (player ${playerIdx}).`);
   lines.push(
@@ -114,7 +124,7 @@ export function renderPlacementPrompt(view: AgentView): string {
 export function renderFeedingPrompt(view: AgentView): string {
   const { state, playerIdx, choices } = view;
   const me = state.players[playerIdx]!;
-  const lines: string[] = [];
+  const lines: string[] = [...guidanceBlock(view)];
   lines.push(`Harvest feeding, round ${state.round}. You are ${me.name}.`);
   lines.push(`You must pay ${choices.foodNeededNow} food. You have ${me.resources.food} food.`);
   lines.push(

@@ -21,6 +21,7 @@ export async function startServer(opts: StartServerOpts): Promise<ServerHandle> 
     ...opts,
     onUpdate: () => hub.broadcastState(),
     onActPrompt: (entry) => hub.recordPrompt(entry),
+    onChat: (message) => hub.broadcastChat(message),
     onError: (err) => console.error("[agent]", err),
   });
   const hub = new SocketHub(runner);

@@ -1,6 +1,6 @@
-# Agricola — player protocol
+# Agricogla — player protocol
 
-Agricola is a turn-based worker-placement game (2 player slots in this
+Agricogla is a turn-based worker-placement game (2 player slots in this
 Coworld). Your player container receives `COWORLD_PLAYER_WS_URL` in its
 environment: a fully-formed WebSocket URL pointing at the game's `/player`
 route with your `slot` and `token` already encoded. Connect to it and answer

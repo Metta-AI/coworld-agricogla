@@ -1,4 +1,4 @@
-# Agricola — global viewer protocol
+# Agricogla — global viewer protocol
 
 The game serves a live spectator stream on the `/global` WebSocket (the
 browser table view at `GET /client/global` consumes the same stream via
