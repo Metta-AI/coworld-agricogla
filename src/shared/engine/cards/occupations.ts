@@ -6,9 +6,6 @@ import { computePastures } from "../farmyard";
  *  cooking, capacity, bonus points, harvest engines). Every effect below is
  *  fully implemented through the hook system. */
 
-const RENOVATE_ACTIONS = ["r_renovate_improve", "r_redevelop"];
-const GROWTH_ACTIONS = ["r_family_growth", "r_urgent_family"];
-
 export const occupations: CardDef[] = [
   // --- gains on resource actions -------------------------------------------
   {
@@ -242,8 +239,8 @@ export const occupations: CardDef[] = [
     kind: "occupation",
     name: "Stable Boy",
     text: "After you use a renovation action, take 1 reed.",
-    onAction: (ctx, spaceId) => {
-      if (RENOVATE_ACTIONS.includes(spaceId)) {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("renovate")) {
         ctx.player.resources.reed += 1;
         ctx.emit("card", `${ctx.player.name} takes 1 reed (Stable Boy)`);
       }
@@ -255,8 +252,8 @@ export const occupations: CardDef[] = [
     kind: "occupation",
     name: "Midwife",
     text: "After each family growth action you take, gain 2 food.",
-    onAction: (ctx, spaceId) => {
-      if (GROWTH_ACTIONS.includes(spaceId)) {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("growth")) {
         ctx.player.resources.food += 2;
         ctx.emit("card", `${ctx.player.name} gains 2 food (Midwife)`);
       }
@@ -396,8 +393,8 @@ export const occupations: CardDef[] = [
     onPlay: (ctx) => {
       ctx.player.resources.grain += 1;
     },
-    onAction: (ctx, spaceId) => {
-      if (spaceId === "r_sow_bake" || spaceId === "r_cultivation") {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("sow")) {
         ctx.player.resources.food += 1;
         ctx.emit("card", `${ctx.player.name} gains 1 food (Seed Merchant)`);
       }
@@ -474,8 +471,8 @@ export const occupations: CardDef[] = [
     kind: "occupation",
     name: "Compost Carter",
     text: "After each plow action you take, gain 1 food.",
-    onAction: (ctx, spaceId) => {
-      if (spaceId === "farmland" || spaceId === "r_cultivation") {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("plow")) {
         ctx.player.resources.food += 1;
         ctx.emit("card", `${ctx.player.name} gains 1 food (Compost Carter)`);
       }
@@ -486,8 +483,8 @@ export const occupations: CardDef[] = [
     kind: "occupation",
     name: "Fence Hand",
     text: "After each fences action you take, gain 1 food.",
-    onAction: (ctx, spaceId) => {
-      if (spaceId === "r_fences" || spaceId === "r_redevelop") {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("fences")) {
         ctx.player.resources.food += 1;
         ctx.emit("card", `${ctx.player.name} gains 1 food (Fence Hand)`);
       }
