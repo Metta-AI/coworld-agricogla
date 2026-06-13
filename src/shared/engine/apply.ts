@@ -1,6 +1,6 @@
 import { HARVEST_ROUNDS, spaceDef } from "./boards";
 import { cardById } from "./cards";
-import { CardDef } from "./cards/types";
+import { ActionTag, CardDef } from "./cards/types";
 import {
   bestCookRate,
   canAccommodate,
@@ -320,9 +320,9 @@ function buyMajor(state: GameState, player: PlayerState, choice: ImprovementChoi
   player.majors.push(choice.card);
   emit(state, player.idx, "improvement", `${player.name} buys ${card.name}`);
   card.onPlay?.(hookCtx(state, player));
-  // Ovens allow an immediate bake on purchase.
+  // Only ovens (Clay Oven, Stone Oven) grant an immediate bake on purchase.
   if (choice.bake && choice.bake.length > 0) {
-    req(card.bake, `${card.name} cannot bake`);
+    req(card.immediateBake, `${card.name} does not grant an immediate bake when bought`);
     req(
       choice.bake.every((b) => b.card === choice.card),
       "immediate bake must use the bought oven",
@@ -358,8 +358,15 @@ function takeSpaceGoods(state: GameState, player: PlayerState, spaceId: string):
   gainGoods(state, player, spaceId, goods);
 }
 
-/** Resolve a placement for the current player. Throws RuleError when illegal. */
-function resolvePlacement(state: GameState, player: PlayerState, placement: Placement): void {
+/** Resolve a placement for the current player. Throws RuleError when illegal.
+ *  Returns the sub-actions that actually ran, so `onAction` card hooks only fire
+ *  for the parts of an "and/or" action that were performed. */
+function resolvePlacement(
+  state: GameState,
+  player: PlayerState,
+  placement: Placement,
+): ActionTag[] {
+  const performed: ActionTag[] = [];
   switch (placement.action) {
     case "farm_expansion": {
       req(
@@ -382,6 +389,7 @@ function resolvePlacement(state: GameState, player: PlayerState, placement: Plac
     }
     case "farmland": {
       plowFields(state, player, placement.spaces, placement.plowCard);
+      performed.push("plow");
       break;
     }
     case "lessons":
@@ -417,21 +425,26 @@ function resolvePlacement(state: GameState, player: PlayerState, placement: Plac
     }
     case "r_fences": {
       buildFences(state, player, placement.edges);
+      performed.push("fences");
       break;
     }
     case "r_sow_bake": {
       req(placement.sow.length + placement.bake.length > 0, "must sow and/or bake");
       sow(state, player, placement.sow);
       bake(state, player, placement.bake);
+      if (placement.sow.length > 0) performed.push("sow");
+      if (placement.bake.length > 0) performed.push("bake");
       break;
     }
     case "r_renovate_improve": {
       renovate(state, player);
+      performed.push("renovate");
       if (placement.improvement) playImprovement(state, player, placement.improvement, "both");
       break;
     }
     case "r_family_growth": {
       familyGrowth(state, player, true);
+      performed.push("growth");
       if (placement.improvement) {
         req(placement.improvement.kind === "minor", "only a minor improvement after family growth");
         playMinor(state, player, placement.improvement);
@@ -440,20 +453,30 @@ function resolvePlacement(state: GameState, player: PlayerState, placement: Plac
     }
     case "r_urgent_family": {
       familyGrowth(state, player, false);
+      performed.push("growth");
       break;
     }
     case "r_cultivation": {
       req(placement.plow !== undefined || placement.sow.length > 0, "must plow and/or sow");
-      if (placement.plow !== undefined) plowFields(state, player, [placement.plow]);
+      if (placement.plow !== undefined) {
+        plowFields(state, player, [placement.plow]);
+        performed.push("plow");
+      }
       sow(state, player, placement.sow);
+      if (placement.sow.length > 0) performed.push("sow");
       break;
     }
     case "r_redevelop": {
       renovate(state, player);
-      if (placement.edges.length > 0) buildFences(state, player, placement.edges);
+      performed.push("renovate");
+      if (placement.edges.length > 0) {
+        buildFences(state, player, placement.edges);
+        performed.push("fences");
+      }
       break;
     }
   }
+  return performed;
 }
 
 export interface StepResult {
@@ -476,12 +499,12 @@ export function applyPlacement(
   const space = findSpace(next, placement.action);
   req(space.occupiedBy === null, `${placement.action} is already occupied`);
 
-  resolvePlacement(next, player, placement);
+  const performed = resolvePlacement(next, player, placement);
 
   space.occupiedBy = playerIdx;
   member.placed = true;
   const ctx = hookCtx(next, player);
-  for (const card of playedCards(player)) card.onAction?.(ctx, placement.action);
+  for (const card of playedCards(player)) card.onAction?.(ctx, placement.action, performed);
 
   advanceWork(next);
   return { state: next };

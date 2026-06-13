@@ -11,7 +11,7 @@ import {
 import { newGame } from "../shared/engine/game";
 import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
-import { ChatMessage, Controller, ServerStatus } from "../shared/protocol";
+import { ChatMessage, Controller, DEFAULT_BEDROCK_MODEL, ServerStatus } from "../shared/protocol";
 import { dmReply, roundQuip } from "./chatter";
 
 export interface GameRunnerOpts {
@@ -46,6 +46,7 @@ export class GameRunner {
   #state: GameState;
   #controllers: Controller[];
   #guidance: string[];
+  #models: string[];
   #chat: ChatMessage[] = [];
   #chatSeq = 0;
   #thinking: number | null = null;
@@ -60,6 +61,7 @@ export class GameRunner {
     this.#opts = opts;
     this.#controllers = [...opts.controllers];
     this.#guidance = Array.from({ length: opts.numPlayers }, () => "");
+    this.#models = Array.from({ length: opts.numPlayers }, () => DEFAULT_BEDROCK_MODEL);
     this.#paused = opts.startPaused ?? false;
     this.#state = newGame({ seed: opts.seed, numPlayers: opts.numPlayers, names: opts.names });
     if (this.#controllers.length !== opts.numPlayers) {
@@ -83,6 +85,7 @@ export class GameRunner {
       toFeed: this.#state.toFeed,
       controllers: [...this.#controllers],
       guidance: [...this.#guidance],
+      models: [...this.#models],
       thinking: this.#thinking,
       paused: this.#paused,
       finished: this.#state.phase === "finished",
@@ -97,6 +100,17 @@ export class GameRunner {
     }
     this.#guidance[playerIdx] = text;
     this.#opts.onUpdate?.();
+  }
+
+  setModel(playerIdx: number, model: string): void {
+    if (playerIdx < 0 || playerIdx >= this.#models.length) {
+      throw new Error(`no player ${playerIdx}`);
+    }
+    this.#models[playerIdx] = model;
+    // Drop the cached llm agent so it rebuilds against the new model.
+    this.#agents.delete(`${playerIdx}:llm`);
+    this.#opts.onUpdate?.();
+    void this.tick();
   }
 
   /** Record + fan out a table-talk message. Bots auto-reply to DMs they get. */
@@ -135,6 +149,7 @@ export class GameRunner {
     if (!agent) {
       agent = buildAgent(controller === "human" ? "scripted" : controller, `player${playerIdx}`, {
         seed: this.#opts.seed * 1000 + playerIdx,
+        model: this.#models[playerIdx],
         onActPrompt: this.#opts.onActPrompt,
       });
       this.#agents.set(key, agent);
@@ -178,6 +193,7 @@ export class GameRunner {
       );
     }
     this.#guidance = Array.from({ length: players }, (_, i) => this.#guidance[i] ?? "");
+    this.#models = Array.from({ length: players }, (_, i) => this.#models[i] ?? DEFAULT_BEDROCK_MODEL);
     this.#chat = [];
     this.#chatSeq = 0;
     this.#thinking = null;

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ActPromptWire } from "../../shared/protocol";
+import { ActPromptWire, BEDROCK_MODELS } from "../../shared/protocol";
 import { C, F } from "./theme";
+
+/** Seat "brains": the scripted baseline plus every selectable Bedrock model. */
+const BRAINS = [{ id: "scripted", label: "Scripted" }, ...BEDROCK_MODELS];
 
 export interface AutopilotProps {
   on: boolean;
@@ -8,8 +11,11 @@ export interface AutopilotProps {
   yourTurn: boolean;
   finished: boolean;
   guidance: string;
+  /** Current brain id: "scripted" or a Bedrock model id. */
+  brain: string;
   onToggle: () => void;
   onGuidance: (text: string) => void;
+  onSetBrain: (brain: string) => void;
   /** Act-prompt transcripts for this seat, newest last. */
   prompts: ActPromptWire[];
 }
@@ -20,8 +26,10 @@ export function Autopilot({
   yourTurn,
   finished,
   guidance,
+  brain,
   onToggle,
   onGuidance,
+  onSetBrain,
   prompts,
 }: AutopilotProps) {
   const [draft, setDraft] = useState(guidance);
@@ -80,9 +88,29 @@ export function Autopilot({
         <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 16, letterSpacing: "0.06em", textTransform: "uppercase", color: C.ink }}>
           Autopilot
         </span>
-        <span style={{ fontFamily: F.mono, fontSize: 8.5, letterSpacing: "0.07em", color: C.muted, border: `1px solid ${C.border}`, borderRadius: 999, padding: "2px 7px" }}>
-          opus 4.8
-        </span>
+        <select
+          value={brain}
+          onChange={(e) => onSetBrain(e.target.value)}
+          aria-label="autopilot model"
+          title="Brain that drives this seat (scripted baseline or a model)"
+          style={{
+            fontFamily: F.mono,
+            fontSize: 9.5,
+            letterSpacing: "0.04em",
+            color: C.inkSoft,
+            background: C.field,
+            border: `1px solid ${C.border}`,
+            borderRadius: 999,
+            padding: "2px 7px",
+            cursor: "pointer",
+          }}
+        >
+          {BRAINS.map((m) => (
+            <option key={m.id} value={m.id} style={{ fontFamily: F.mono, background: C.field, color: C.ink }}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <span style={{ flex: 1 }} />
         <button
           onClick={onToggle}

@@ -86,7 +86,7 @@ export function ActionSpaces({ state, options, clickable, onPick }: ActionSpaces
               <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                 {SPACE_ICON[space.id] && (
                   <img
-                    src={`/art/${SPACE_ICON[space.id]}.png`}
+                    src={`art/${SPACE_ICON[space.id]}.png`}
                     alt=""
                     style={{ height: 19, width: 19, objectFit: "contain", flex: "none", opacity: taken ? 0.6 : 1 }}
                   />

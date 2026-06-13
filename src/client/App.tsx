@@ -3,6 +3,7 @@ import { computeAutoFeed } from "../shared/engine/apply";
 import { legalActions, playerChoices } from "../shared/engine/legal";
 import { Placement } from "../shared/engine/placements";
 import { GameState } from "../shared/engine/types";
+import { Controller, DEFAULT_BEDROCK_MODEL } from "../shared/protocol";
 import { FeedDialog, PlacementDialog } from "./Dialogs";
 import { GameSocket } from "./net";
 import { ReplayApp } from "./Replay";
@@ -12,9 +13,11 @@ import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F, nextHarvest, STAGE_CHIPS, stageOf } from "./agricogla/theme";
 
 function routeSeat(): { playerIdx: number | null; token?: string } {
-  const match = /^\/player\/(\d+)/.exec(location.pathname);
+  // Match by path suffix: behind the Observatory hosted proxy the pathname is
+  // prefixed (.../sessions/<id>/proxy/client/player), so exact matches fail.
+  const match = /\/player\/(\d+)\/?$/.exec(location.pathname);
   if (match) return { playerIdx: Number(match[1]) };
-  if (location.pathname === "/client/player") {
+  if (location.pathname.endsWith("/client/player")) {
     const params = new URLSearchParams(location.search);
     const slot = Number(params.get("slot"));
     if (Number.isInteger(slot) && slot >= 0) {
@@ -25,7 +28,7 @@ function routeSeat(): { playerIdx: number | null; token?: string } {
 }
 
 export function App() {
-  if (location.pathname === "/client/replay") return <ReplayApp />;
+  if (location.pathname.endsWith("/client/replay")) return <ReplayApp />;
   return <GameApp />;
 }
 
@@ -37,13 +40,27 @@ interface Frame {
 
 const mono = F.mono;
 
+/** Small robot glyph marking a seat that the autopilot model is playing. */
+function RobotIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
+      <circle cx="12" cy="3.5" r="1" fill="currentColor" stroke="none" />
+      <path d="M12 4.5V8" />
+      <rect x="5" y="8" width="14" height="11" rx="3" />
+      <circle cx="9.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function GameApp() {
   const [, setTick] = useState(0);
   const seat = routeSeat();
-  const mySeat = seat.playerIdx;
+  // Seat is URL-derived initially, but can be re-claimed live via the seat menu.
+  const [mySeat, setMySeat] = useState<number | null>(seat.playerIdx);
   const socketRef = useRef<GameSocket | null>(null);
   if (!socketRef.current) {
-    socketRef.current = new GameSocket(mySeat, () => setTick((t) => t + 1), seat.token);
+    socketRef.current = new GameSocket(seat.playerIdx, () => setTick((t) => t + 1), seat.token);
   }
   const socket = socketRef.current;
   useEffect(() => {
@@ -54,6 +71,12 @@ function GameApp() {
   const [dialogSpace, setDialogSpace] = useState<string | null>(null);
   const [histIndex, setHistIndex] = useState<number | null>(null);
   const [frames, setFrames] = useState<Frame[]>([]);
+  // Final-scoring modal can be dismissed to explore the timeline, then reopened.
+  const [scoreClosed, setScoreClosed] = useState(false);
+  // Seat-takeover menu (right-click a player tab). prevController remembers each
+  // seat's controller before takeover so "observe" hands it back to the same AI.
+  const prevControllerRef = useRef<Record<number, Controller>>({});
+  const [seatMenu, setSeatMenu] = useState<{ seat: number; x: number; y: number } | null>(null);
 
   const { state, status, prompts, chat, lastError, connected } = socket.feed;
 
@@ -119,7 +142,7 @@ function GameApp() {
   const msgCountByRound: Record<number, number> = {};
   for (const m of chat) msgCountByRound[m.round] = (msgCountByRound[m.round] ?? 0) + 1;
 
-  const autoOn = mySeat !== null && status.controllers[mySeat] === "llm";
+  const autoOn = mySeat !== null && status.controllers[mySeat] !== "human";
   const thinking = status.thinking === mySeat && mySeat !== null;
 
   const submitPlacement = (placement: Placement) => {
@@ -128,14 +151,51 @@ function GameApp() {
   };
   const sendChat = (to: number | null, text: string) => socket.sendChat(to, text);
 
+  // ---- seat mode (right-click a player tab): observe / control / autopilot ----
+  // Leaving a seat we were manually driving hands it back to an AI so the game
+  // never stalls on an empty human seat.
+  const releasePriorSeat = (next: number | null) => {
+    if (mySeat !== null && mySeat !== next && status.controllers[mySeat] === "human") {
+      socket.setController(mySeat, prevControllerRef.current[mySeat] ?? "llm");
+    }
+  };
+  const takeControl = (idx: number) => {
+    releasePriorSeat(idx);
+    prevControllerRef.current[idx] = status.controllers[idx] ?? "scripted";
+    socket.setController(idx, "human");
+    socket.claimSeat(idx);
+    setMySeat(idx);
+    setView(`p${idx}`);
+  };
+  const autopilotSeat = (idx: number) => {
+    releasePriorSeat(idx);
+    // Keep a scripted brain if it already has one; otherwise hand it to an LLM.
+    socket.setController(idx, status.controllers[idx] === "scripted" ? "scripted" : "llm");
+    socket.claimSeat(idx);
+    setMySeat(idx);
+    setView(`p${idx}`);
+  };
+  const observeSeat = (idx: number) => {
+    if (mySeat === idx) {
+      if (status.controllers[idx] === "human") {
+        socket.setController(idx, prevControllerRef.current[idx] ?? "llm");
+      }
+      socket.claimSeat(null);
+      setMySeat(null);
+    }
+    setView(`p${idx}`);
+  };
+
   // ---- header bits ----
   const tabs = [
-    { id: "global", label: "GLOBAL", color: undefined as string | undefined },
-    { id: "feed", label: "FEED", color: undefined as string | undefined },
+    { id: "global", label: "GLOBAL", color: undefined as string | undefined, ai: false },
+    { id: "feed", label: "FEED", color: undefined as string | undefined, ai: false },
     ...state.players.map((p) => ({
       id: `p${p.idx}`,
       label: p.idx === mySeat ? "YOUR FARM" : p.name.toUpperCase(),
       color: p.color as string | undefined,
+      // Seat is on autopilot — any non-human brain (scripted or an LLM model).
+      ai: status.controllers[p.idx] !== "human" && status.controllers[p.idx] !== "remote",
     })),
   ];
   const stageNow = stageOf(state.round);
@@ -143,14 +203,18 @@ function GameApp() {
   const curName = state.players[state.currentPlayer]?.name ?? "—";
 
   const turnChip = (() => {
-    if (finished) return { text: "FINAL SCORES", bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
+    if (finished) return { text: scoreClosed ? "▦ FINAL SCORES" : "FINAL SCORES", bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
     if (reviewing)
       return { text: `◀ REVIEWING R${displayRound} · back to live`, bg: "rgba(90,215,255,0.12)", color: C.cyan, border: "#3a6b80", pulse: false };
     if (myTurn) return { text: "● YOUR TURN — place a worker", bg: C.ember, color: C.emberInk, border: C.ember, pulse: true };
     if (state.phase === "feeding") return { text: "HARVEST — feeding", bg: "transparent", color: C.ember, border: "#6a5524", pulse: false };
     return { text: `placing: ${curName}`, bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
   })();
-  const onTurnChip = () => (reviewing ? setHistIndex(null) : setView(myTurn && mySeat !== null ? `p${mySeat}` : "global"));
+  const onTurnChip = () => {
+    if (finished) return setScoreClosed((c) => !c);
+    if (reviewing) return setHistIndex(null);
+    setView(myTurn && mySeat !== null ? `p${mySeat}` : "global");
+  };
 
   const appStyle: CSSProperties = {
     position: "fixed",
@@ -161,7 +225,7 @@ function GameApp() {
     padding: "12px 16px 8px",
     overflow: "hidden",
     background:
-      "radial-gradient(1200px 700px at 50% -10%, rgba(16,22,34,0.82) 0%, rgba(7,9,13,0.92) 55%), url(/art/texture-stage.png) center/cover no-repeat, #07090d",
+      "radial-gradient(1200px 700px at 50% -10%, rgba(16,22,34,0.82) 0%, rgba(7,9,13,0.92) 55%), url(art/texture-stage.png) center/cover no-repeat, #07090d",
     color: C.ink,
     fontFamily: F.body,
     fontSize: 14,
@@ -172,7 +236,7 @@ function GameApp() {
       {/* ===== header ===== */}
       <header style={{ flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "2px 4px 10px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 9, flex: "none" }}>
-          <img src="/art/logo-wordmark.png" alt="Agricogla" style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
+          <img src="art/logo-wordmark.png" alt="Agricogla" style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
         </div>
 
         <nav style={{ display: "flex", gap: 4, flex: "none" }}>
@@ -182,6 +246,15 @@ function GameApp() {
               <button
                 key={t.id}
                 onClick={() => setView(t.id)}
+                onContextMenu={
+                  t.id.startsWith("p") && !status.readOnly
+                    ? (e) => {
+                        e.preventDefault();
+                        setSeatMenu({ seat: Number(t.id.slice(1)), x: e.clientX, y: e.clientY });
+                      }
+                    : undefined
+                }
+                title={t.id.startsWith("p") && !status.readOnly ? "right-click to control / observe this seat" : undefined}
                 style={{
                   background: active ? "#1c2230" : "transparent",
                   border: `1px solid ${active ? t.color ?? C.ember : C.border}`,
@@ -193,8 +266,12 @@ function GameApp() {
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
                 }}
               >
+                {t.ai && <RobotIcon />}
                 {t.label}
               </button>
             );
@@ -302,9 +379,24 @@ function GameApp() {
           autoOn={autoOn}
           thinking={thinking}
           guidance={mySeat !== null ? status.guidance[mySeat] ?? "" : ""}
+          brain={
+            mySeat !== null && status.controllers[mySeat] === "scripted"
+              ? "scripted"
+              : mySeat !== null
+                ? status.models?.[mySeat] ?? DEFAULT_BEDROCK_MODEL
+                : DEFAULT_BEDROCK_MODEL
+          }
           prompts={prompts.filter((p) => p.playerIdx === Number(view.slice(1)))}
           onToggleAuto={() => mySeat !== null && socket.setController(mySeat, autoOn ? "human" : "llm")}
           onGuidance={(text) => mySeat !== null && socket.setGuidance(mySeat, text)}
+          onSetBrain={(b) => {
+            if (mySeat === null) return;
+            if (b === "scripted") socket.setController(mySeat, "scripted");
+            else {
+              socket.setController(mySeat, "llm");
+              socket.setModel(mySeat, b);
+            }
+          }}
         />
       )}
 
@@ -332,7 +424,7 @@ function GameApp() {
             <button onClick={() => (status.paused ? socket.resume() : socket.pause())} style={footBtn}>
               {status.paused ? "▶ resume" : "⏸ pause"}
             </button>
-            <button onClick={() => socket.reset()} title="new game, next seed" style={footBtn}>
+            <button onClick={() => { setScoreClosed(false); socket.reset(); }} title="new game, next seed" style={footBtn}>
               ↻ new game
             </button>
           </>
@@ -359,7 +451,83 @@ function GameApp() {
           onAuto={() => socket.feedDecision(computeAutoFeed(state, mySeat!))}
         />
       )}
-      {finished && <ScoreBoard state={state} onNewGame={() => socket.reset()} />}
+      {finished && !scoreClosed && (
+        <ScoreBoard
+          state={state}
+          onNewGame={() => {
+            setScoreClosed(false);
+            socket.reset();
+          }}
+          onClose={() => setScoreClosed(true)}
+        />
+      )}
+
+      {/* ===== seat control / observe menu ===== */}
+      {seatMenu &&
+        (() => {
+          const idx = seatMenu.seat;
+          const name = state.players[idx]?.name ?? `Seat ${idx}`;
+          const mode = mySeat === idx ? (status.controllers[idx] === "human" ? "control" : "autopilot") : "observe";
+          const itemStyle: CSSProperties = {
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            width: "100%",
+            textAlign: "left",
+            background: "transparent",
+            border: "none",
+            color: C.ink,
+            fontFamily: mono,
+            fontSize: 11.5,
+            letterSpacing: "0.03em",
+            padding: "8px 13px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          };
+          const dot = (active: boolean) => (
+            <span style={{ width: 9, flex: "none", color: C.ember }}>{active ? "●" : ""}</span>
+          );
+          return (
+            <>
+              <div
+                onClick={() => setSeatMenu(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSeatMenu(null);
+                }}
+                style={{ position: "fixed", inset: 0, zIndex: 99 }}
+              />
+              <div
+                style={{
+                  position: "fixed",
+                  left: Math.min(seatMenu.x, window.innerWidth - 200),
+                  top: seatMenu.y,
+                  zIndex: 100,
+                  minWidth: 176,
+                  background: C.panel,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 10,
+                  boxShadow: "0 12px 34px rgba(0,0,0,0.6)",
+                  overflow: "hidden",
+                  padding: "4px 0",
+                }}
+              >
+                <div style={{ padding: "6px 13px 7px", fontFamily: mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.borderSoft}` }}>
+                  {name}
+                </div>
+                <button style={itemStyle} onClick={() => { observeSeat(idx); setSeatMenu(null); }}>
+                  {dot(mode === "observe")} Observe
+                </button>
+                <button style={itemStyle} onClick={() => { takeControl(idx); setSeatMenu(null); }}>
+                  {dot(mode === "control")} Control
+                </button>
+                <button style={itemStyle} onClick={() => { autopilotSeat(idx); setSeatMenu(null); }}>
+                  {dot(mode === "autopilot")} Autopilot
+                </button>
+              </div>
+            </>
+          );
+        })()}
     </div>
   );
 }

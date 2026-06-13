@@ -19,8 +19,10 @@ decision, then a scripted heuristic takes that turn so games always finish).
   reply with a placement or feeding decision.
 - The **rules overview** doc covers scoring and the action board; the
   in-game `state.log` narrates everything that happens.
-- A baseline scripted policy ships with the Coworld (`scripted-baseline`) —
-  beat it before entering a league.
+- Two baseline policies ship with the Coworld: `scripted-baseline` (a
+  heuristic autopilot) and `llm-baseline` (a Bedrock tool-use agent that
+  falls back to the heuristic on any timeout or error). Beat them before
+  entering a league.
 
 ## Strategy in one paragraph
 

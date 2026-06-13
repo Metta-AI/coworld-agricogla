@@ -9,6 +9,11 @@ export interface HookCtx {
   emit: (type: string, text: string) => void;
 }
 
+/** Sub-actions that may be performed while resolving a worker placement. An
+ *  `onAction` hook keys on these so "and/or" composite actions (e.g. Cultivation
+ *  = plow and/or sow) only trigger a card when its sub-action actually ran. */
+export type ActionTag = "plow" | "sow" | "bake" | "fences" | "renovate" | "growth";
+
 /** Anytime cooking rates: food per unit converted. */
 export type CookRates = Partial<Record<AnimalType | "vegetable", number>>;
 
@@ -49,13 +54,17 @@ export interface CardDef {
   onRoundStart?: (ctx: HookCtx, round: number) => void;
   /** Adjust goods gained from an action space before they are received. */
   onGain?: (ctx: HookCtx, spaceId: string, gains: Goods) => void;
-  /** Fires after the owning player resolves the named action space. */
-  onAction?: (ctx: HookCtx, spaceId: string) => void;
+  /** Fires after the owning player resolves the named action space. `performed`
+   *  lists the sub-actions that actually ran this placement; sub-action-keyed
+   *  cards must check it rather than the space id alone. */
+  onAction?: (ctx: HookCtx, spaceId: string, performed: ActionTag[]) => void;
   /** Fires during the harvest field phase. */
   onHarvest?: (ctx: HookCtx) => void;
 
   cook?: CookRates;
   bake?: BakeRates;
+  /** Ovens (and only ovens) grant a one-time bake action when bought. */
+  immediateBake?: boolean;
   harvestFood?: HarvestFood;
   capacity?: (p: PlayerState) => CapacitySlot[];
   bonusVp?: (p: PlayerState, s: GameState) => number;

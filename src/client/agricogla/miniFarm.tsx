@@ -5,9 +5,9 @@ import { GOOD_LABELS } from "../icons";
 import { C, F, RES_COLOR } from "./theme";
 
 const ROOM_TILE: Record<string, string> = {
-  wood: "/art/tile-room-wood.png",
-  clay: "/art/tile-room-clay.png",
-  stone: "/art/tile-room-stone.png",
+  wood: "art/tile-room-wood.png",
+  clay: "art/tile-room-clay.png",
+  stone: "art/tile-room-stone.png",
 };
 
 interface Tile {
@@ -21,8 +21,8 @@ function tilesFor(player: PlayerState): Tile[] {
   const { pastureCells } = computePastures(player.spaces, player.fences);
   return player.spaces.map((sp, i) => {
     if (sp.kind === "room") return { src: ROOM_TILE[player.houseMaterial]!, pasture: false, stable: false };
-    if (sp.kind === "field") return { src: "/art/tile-field.png", pasture: false, stable: false };
-    return { src: "/art/tile-grass.png", pasture: pastureCells.has(i), stable: !!sp.stable };
+    if (sp.kind === "field") return { src: "art/tile-field.png", pasture: false, stable: false };
+    return { src: "art/tile-grass.png", pasture: pastureCells.has(i), stable: !!sp.stable };
   });
 }
 
@@ -44,7 +44,7 @@ function Chip({ good, val, color }: { good: Good; val: number; color: string }) 
         color,
       }}
     >
-      <img src={`/art/token-${good}.png`} alt="" style={{ height: 13, width: 13, objectFit: "contain" }} />
+      <img src={`art/token-${good}.png`} alt="" style={{ height: 13, width: 13, objectFit: "contain" }} />
       {val}
     </span>
   );
@@ -124,7 +124,7 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
             {t.pasture && <span style={{ position: "absolute", inset: 0, background: "rgba(63,125,82,0.22)" }} />}
             {t.stable && (
               <img
-                src="/art/token-stable.png"
+                src="art/token-stable.png"
                 alt=""
                 style={{ position: "absolute", inset: "14%", width: "72%", height: "72%", objectFit: "contain" }}
               />
@@ -142,8 +142,8 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
         <Chip good="food" val={player.resources.food} color={RES_COLOR.food} />
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-        <Stat src="/art/token-family.png" label={`${player.family.length}${newborn ? `+${newborn}` : ""}`} title="Family members" />
-        <Stat src="/art/act-renovate.png" label={player.houseMaterial} title="House material" />
+        <Stat src="art/token-family.png" label={`${player.family.length}${newborn ? `+${newborn}` : ""}`} title="Family members" />
+        <Stat src="art/act-renovate.png" label={player.houseMaterial} title="House material" />
         <Chip good="sheep" val={player.animals.sheep} color={RES_COLOR.sheep} />
         <Chip good="boar" val={player.animals.boar} color={RES_COLOR.boar} />
         <Chip good="cattle" val={player.animals.cattle} color={RES_COLOR.cattle} />

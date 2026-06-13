@@ -6,6 +6,8 @@ export type AgentSpec = "scripted" | "random" | "llm";
 
 export interface BuildAgentOpts {
   seed: number;
+  /** Bedrock model id for llm agents. */
+  model?: string;
   onActPrompt?: (entry: ActPromptEntry) => void;
 }
 
@@ -16,7 +18,7 @@ export function buildAgent(spec: string, id: string, opts: BuildAgentOpts): Agen
     case "random":
       return randomAgent(id, opts.seed);
     case "llm":
-      return llmAgent(id, { onActPrompt: opts.onActPrompt });
+      return llmAgent(id, { onActPrompt: opts.onActPrompt, model: opts.model });
     default:
       throw new Error(`unknown agent spec: ${spec} (use scripted|random|llm)`);
   }
