@@ -81,8 +81,12 @@ export class SocketHub {
     }
   }
 
+  #redact(playerIdx: number | null) {
+    return redactState(this.#runner.state, playerIdx, { maskFuture: this.#opts.readOnly });
+  }
+
   #sendSnapshot(client: ClientInfo): void {
-    const { state, handSizes } = redactState(this.#runner.state, client.playerIdx);
+    const { state, handSizes } = this.#redact(client.playerIdx);
     this.#send(client, { type: "state", state, handSizes });
     this.#send(client, { type: "status", status: this.#status() });
     for (const entry of this.#prompts.slice(-50)) {
@@ -92,7 +96,7 @@ export class SocketHub {
 
   broadcastState(): void {
     for (const client of this.#clients) {
-      const { state, handSizes } = redactState(this.#runner.state, client.playerIdx);
+      const { state, handSizes } = this.#redact(client.playerIdx);
       this.#send(client, { type: "state", state, handSizes });
     }
     this.broadcastStatus();

@@ -25,7 +25,10 @@ export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOp
   app.get("/state.json", (req, res) => {
     const playerIdx =
       !opts.spectatorOnly && req.query.player !== undefined ? Number(req.query.player) : null;
-    res.json({ ...redactState(runner.state, playerIdx), status: runner.status() });
+    res.json({
+      ...redactState(runner.state, playerIdx, { maskFuture: opts.spectatorOnly }),
+      status: runner.status(),
+    });
   });
 
   if (existsSync(distDir)) {

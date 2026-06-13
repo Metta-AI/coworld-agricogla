@@ -169,7 +169,7 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
         agent.send({
           type: "final",
           results,
-          state: redactState(runner.state, agent.slot).state,
+          state: redactState(runner.state, agent.slot, { maskFuture: true }).state,
         });
       }
       await sleep(500);

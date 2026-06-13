@@ -120,7 +120,7 @@ export class RemoteAgent implements Agent {
     const decisionId = ++this.#decisionId;
     let error: string | null = null;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const { state, handSizes } = redactState(view.state, view.playerIdx);
+      const { state, handSizes } = redactState(view.state, view.playerIdx, { maskFuture: true });
       let reply: CoworldPlayerMessage;
       try {
         reply = await this.#request({

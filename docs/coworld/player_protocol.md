@@ -52,7 +52,10 @@ re-sends the pending observation.
 `spaces`, fences, family, played cards, hand), `actionSpaces` (occupancy and
 accumulated `pile` goods), `round` (1–14), `phase`, `currentPlayer`, `toFeed`
 and an event `log`. Your own `handOccupations` / `handMinors` are visible;
-opponents' hands are redacted.
+opponents' hands are redacted. Hidden information is masked: `seed` is
+zeroed and every upcoming `roundDeck` entry reads `"hidden"` (so you cannot
+re-derive the deal or peek at the round-card order; simulating past the end
+of the current round is therefore not possible from an observation).
 
 `options` entries describe every action space:
 `{ id, title, summary, pile, occupiedBy, available, reason? }` — only

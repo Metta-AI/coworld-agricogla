@@ -29,12 +29,16 @@ function workspace(config: object): {
 }
 
 /** Minimal in-test policy: the bundled scripted player loop. */
-function runScriptedPlayer(url: string): Promise<CoworldResults> {
+function runScriptedPlayer(
+  url: string,
+  onObservation?: (message: CoworldServerMessage & { type: "observation" }) => void,
+): Promise<CoworldResults> {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
     socket.on("message", (raw) => {
       const message = JSON.parse(raw.toString()) as CoworldServerMessage;
       if (message.type === "observation") {
+        onObservation?.(message);
         socket.send(JSON.stringify(decideReply(message)));
       } else if (message.type === "final") {
         resolve(message.results);
@@ -63,11 +67,22 @@ describe("coworld game server", () => {
       ...ws,
     });
 
+    const observations: (CoworldServerMessage & { type: "observation" })[] = [];
     const playerResults = await Promise.all([
-      runScriptedPlayer(`ws://127.0.0.1:${handle.port}/player?slot=0&token=tok0`),
+      runScriptedPlayer(`ws://127.0.0.1:${handle.port}/player?slot=0&token=tok0`, (o) =>
+        observations.push(o),
+      ),
       runScriptedPlayer(`ws://127.0.0.1:${handle.port}/player?slot=1&token=tok1`),
     ]);
     const results = await handle.finished;
+
+    // Tournament observations must not leak exploitable hidden state: the
+    // seed re-derives every hand, the round deck is face-down in the rules.
+    const first = observations[0]!;
+    expect(first.state.seed).toBe(0);
+    expect(first.state.roundDeck.every((id) => id === "hidden")).toBe(true);
+    expect(first.state.players[1 - first.slot]!.handOccupations).toEqual([]);
+    expect(first.state.players[first.slot]!.handOccupations.length).toBeGreaterThan(0);
 
     expect(playerResults[0]).toEqual(results);
     expect(results.scores).toHaveLength(2);
