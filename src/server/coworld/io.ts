@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync, inflateSync } from "node:zlib";
 
-const HTTP_USER_AGENT = "cogame-agricola/0.1";
+const HTTP_USER_AGENT = "cogame-agricogla/0.1";
 
 function localPath(uri: string): string | null {
   if (uri.startsWith("file://")) return fileURLToPath(uri);

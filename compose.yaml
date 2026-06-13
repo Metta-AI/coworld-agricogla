@@ -3,7 +3,7 @@
 # commissioner -> {{COMMISSIONER_IMAGE}}.
 services:
   agricola:
-    image: cogame-agricola:latest
+    image: cogame-agricogla:latest
     platform: linux/amd64
     build:
       context: .

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const doc = (name) => readFileSync(join(root, "docs", "coworld", name)).toString();
 
-const REPO_URL = "https://github.com/Metta-AI/cogame-agricola";
+const REPO_URL = "https://github.com/Metta-AI/cogame-agricogla";
 const GAME_RUN = ["npx", "tsx", "src/server/coworld-main.ts"];
 const PLAYER_RUN = ["npx", "tsx", "src/agents/coworld-player.ts"];
 
@@ -88,7 +88,7 @@ const manifest = {
   $schema:
     "https://raw.githubusercontent.com/Metta-AI/coworld/main/src/coworld/coworld_manifest_schema.json",
   game: {
-    name: "agricola",
+    name: "agricogla",
     description:
       "Head-to-head Agricola: the classic worker-placement farming board game. " +
       "Plow, sow, fence, breed and feed your family across 14 rounds and six harvests; " +

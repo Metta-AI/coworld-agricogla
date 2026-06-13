@@ -1,4 +1,4 @@
-# cogame-agricola
+# cogame-agricogla
 
 A full web port of the board game **Agricola** (1–4 players): complete game
 engine, a board-game-styled web UI, and per-player autopilots that can be

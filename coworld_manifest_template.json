@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/Metta-AI/coworld/main/src/coworld/coworld_manifest_schema.json",
   "game": {
-    "name": "agricola",
+    "name": "agricogla",
     "description": "Head-to-head Agricola: the classic worker-placement farming board game. Plow, sow, fence, breed and feed your family across 14 rounds and six harvests; every move is validated by a full rules engine.",
     "owner": "daveey@gmail.com",
     "runnable": {
@@ -12,7 +12,7 @@
         "tsx",
         "src/server/coworld-main.ts"
       ],
-      "source_url": "https://github.com/Metta-AI/cogame-agricola"
+      "source_url": "https://github.com/Metta-AI/cogame-agricogla"
     },
     "config_schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -146,7 +146,7 @@
         "tsx",
         "src/agents/coworld-player.ts"
       ],
-      "source_url": "https://github.com/Metta-AI/cogame-agricola",
+      "source_url": "https://github.com/Metta-AI/cogame-agricogla",
       "description": "Heuristic baseline: values food security, family growth and board coverage; the same policy backs the in-game scripted fallback."
     }
   ],

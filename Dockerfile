@@ -1,4 +1,4 @@
-# Coworld game/player image for cogame-agricola. The same image backs the
+# Coworld game/player image for cogame-agricogla. The same image backs the
 # game runnable (coworld-main) and the bundled scripted player; the coworld
 # manifest selects the entrypoint via `run`.
 FROM docker.io/library/node:22-slim
