@@ -150,6 +150,10 @@ export class GameRunner {
       agent = buildAgent(controller === "human" ? "scripted" : controller, `player${playerIdx}`, {
         seed: this.#opts.seed * 1000 + playerIdx,
         model: this.#models[playerIdx],
+        // Local llm seats keep a diary and can table-talk; their messages flow
+        // into the same chat feed humans use.
+        capabilities: { memory: true, chat: true },
+        onChat: (to, text) => this.postChat(playerIdx, to, text),
         onActPrompt: this.#opts.onActPrompt,
       });
       this.#agents.set(key, agent);
@@ -262,6 +266,12 @@ export class GameRunner {
         const agent = this.#agentFor(pending);
         const view = buildView(this.#state, pending);
         view.guidance = this.#guidance[pending] || undefined;
+        // Show llm seats the table-talk they can see (public + DMs to them).
+        if (this.#controllers[pending] === "llm") {
+          view.messages = this.#chat.filter(
+            (m) => m.from !== pending && (m.to === null || m.to === pending),
+          );
+        }
         // Signal "thinking" only for the slow controllers the UI cares about.
         const slow = this.#controllers[pending] === "llm" || this.#controllers[pending] === "remote";
         if (slow && this.#thinking !== pending) {

@@ -1,0 +1,10 @@
+{
+  "name": "cand-memory-chat",
+  "parent": "baseline",
+  "notes": "Enable the diary (memory) + table-talk (chat) capabilities, with a strategy nudge to use them. Tests whether persistent self-notes and seeing other cogs' messages improve play.",
+  "capabilities": { "memory": true, "chat": true },
+  "blocks": {
+    "strategy": "Strategy basics: feed the family first (begging is terrible), grow the family as early as housing allows (each member = 3 points + an extra action), don't leave whole categories at -1, and convert spare resources into points late. Use your diary to commit to a plan (what you are saving resources for, your next 1-2 target actions) and check it each turn so you stay coherent across rounds. Watch what other cogs say and which spaces they are racing you for; take a contested space before they do when it matters."
+  },
+  "guidance": ""
+}
