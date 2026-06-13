@@ -2,16 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { ActPromptWire, BEDROCK_MODELS } from "../../shared/protocol";
 import { C, F } from "./theme";
 
+/** Seat "brains": the scripted baseline plus every selectable Bedrock model. */
+const BRAINS = [{ id: "scripted", label: "Scripted" }, ...BEDROCK_MODELS];
+
 export interface AutopilotProps {
   on: boolean;
   thinking: boolean;
   yourTurn: boolean;
   finished: boolean;
   guidance: string;
-  model: string;
+  /** Current brain id: "scripted" or a Bedrock model id. */
+  brain: string;
   onToggle: () => void;
   onGuidance: (text: string) => void;
-  onSetModel: (model: string) => void;
+  onSetBrain: (brain: string) => void;
   /** Act-prompt transcripts for this seat, newest last. */
   prompts: ActPromptWire[];
 }
@@ -22,10 +26,10 @@ export function Autopilot({
   yourTurn,
   finished,
   guidance,
-  model,
+  brain,
   onToggle,
   onGuidance,
-  onSetModel,
+  onSetBrain,
   prompts,
 }: AutopilotProps) {
   const [draft, setDraft] = useState(guidance);
@@ -85,10 +89,10 @@ export function Autopilot({
           Autopilot
         </span>
         <select
-          value={model}
-          onChange={(e) => onSetModel(e.target.value)}
+          value={brain}
+          onChange={(e) => onSetBrain(e.target.value)}
           aria-label="autopilot model"
-          title="Bedrock model that drives this seat"
+          title="Brain that drives this seat (scripted baseline or a model)"
           style={{
             fontFamily: F.mono,
             fontSize: 9.5,
@@ -101,7 +105,7 @@ export function Autopilot({
             cursor: "pointer",
           }}
         >
-          {BEDROCK_MODELS.map((m) => (
+          {BRAINS.map((m) => (
             <option key={m.id} value={m.id} style={{ fontFamily: F.mono, background: C.field, color: C.ink }}>
               {m.label}
             </option>
