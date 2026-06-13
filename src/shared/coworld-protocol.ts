@@ -40,7 +40,7 @@ export type ReplayAction =
   | { playerIdx: number; kind: "feed"; decision: unknown };
 
 export interface ReplayPayload {
-  game: "agricola";
+  game: "agricogla";
   seed: number;
   numPlayers: number;
   playerNames: string[];

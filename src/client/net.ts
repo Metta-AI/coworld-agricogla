@@ -2,6 +2,7 @@ import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
 import {
   ActPromptWire,
+  ChatMessage,
   Controller,
   HandSizes,
   ServerMessage,
@@ -13,6 +14,7 @@ export interface FeedState {
   handSizes: HandSizes[];
   status: ServerStatus | null;
   prompts: ActPromptWire[];
+  chat: ChatMessage[];
   lastError: string | null;
   connected: boolean;
 }
@@ -27,6 +29,7 @@ export class GameSocket {
     handSizes: [],
     status: null,
     prompts: [],
+    chat: [],
     lastError: null,
     connected: false,
   };
@@ -66,6 +69,14 @@ export class GameSocket {
           this.feed.prompts.push(message.entry);
           if (this.feed.prompts.length > 100) this.feed.prompts.shift();
           break;
+        case "chat":
+          // Backlog is re-sent on reconnect; dedupe by sequence number.
+          if (!this.feed.chat.some((m) => m.seq === message.message.seq)) {
+            this.feed.chat.push(message.message);
+            this.feed.chat.sort((a, b) => a.seq - b.seq);
+            if (this.feed.chat.length > 300) this.feed.chat.shift();
+          }
+          break;
         case "error":
           this.feed.lastError = message.message;
           break;
@@ -90,6 +101,22 @@ export class GameSocket {
 
   setController(playerIdx: number, controller: Controller): void {
     this.#send({ type: "setController", playerIdx, controller });
+  }
+
+  /** The seat this client is playing, or null when spectating the table. */
+  get seat(): number | null {
+    return this.#playerIdx;
+  }
+
+  setGuidance(playerIdx: number, text: string): void {
+    this.#send({ type: "setGuidance", playerIdx, text });
+  }
+
+  sendChat(to: number | null, text: string): void {
+    if (this.#playerIdx === null) return; // spectators watch, they don't talk
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.#send({ type: "chat", from: this.#playerIdx, to, text: trimmed });
   }
 
   pause(): void {

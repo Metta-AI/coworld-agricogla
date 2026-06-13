@@ -1,4 +1,4 @@
-# Agricola
+# Agricogla
 
 A full digital port of the classic worker-placement board game: build out
 your farm over 14 rounds — plow fields, sow grain and vegetables, fence

@@ -11,12 +11,25 @@ import {
   Placement,
   SowChoice,
 } from "../shared/engine/placements";
-import { GameState } from "../shared/engine/types";
-import { GoodsChips } from "./ActionBoard";
+import { GameState, Good, Goods } from "../shared/engine/types";
 import { CardView } from "./CardList";
 import { Farm } from "./Farm";
 import { Token } from "./Token";
-import { Good } from "../shared/engine/types";
+
+export function GoodsChips({ goods }: { goods: Goods }) {
+  const entries = Object.entries(goods).filter(([, n]) => (n ?? 0) > 0);
+  if (entries.length === 0) return null;
+  return (
+    <span className="goods-chips">
+      {entries.map(([g, n]) => (
+        <span key={g} className="chip" title={g}>
+          <Token good={g as Good} size={18} />
+          {n}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export interface DialogProps {
   spaceId: string;

@@ -5,9 +5,9 @@ import { feedDecisionSchema, placementSchema } from "../shared/engine/placements
 import { GameState } from "../shared/engine/types";
 import { ReplayPayload } from "../shared/coworld-protocol";
 import { HandSizes } from "../shared/protocol";
-import { ActionBoard, RoundTrack } from "./ActionBoard";
-import { EventLog } from "./Panels";
-import { PlayerPanel, ScoreBoard } from "./PlayerPanel";
+import { GlobalView } from "./agricogla/views";
+import { ScoreBoard } from "./agricogla/scoreboard";
+import { C, F, nextHarvest } from "./agricogla/theme";
 
 /** Re-simulate the whole episode; the engine is deterministic given the
  *  seed, so the recorded decisions reproduce every intermediate state. */
@@ -64,100 +64,42 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   }, [playing, speedMs, states.length]);
 
   const atEnd = index === states.length - 1;
-  const { state, handSizes } = useMemo(() => hideHands(states[index]!), [states, index]);
+  const { state } = useMemo(() => hideHands(states[index]!), [states, index]);
+  const nh = nextHarvest(state.round);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>
-          <a href="/client/replay">Agricola — replay</a>
-        </h1>
-        <RoundTrack state={state} />
-        <div className="header-status">
-          <span className={`phase-badge ${state.phase}`}>
-            {state.phase === "finished"
-              ? "game over"
-              : state.phase === "feeding"
-                ? "harvest — feeding"
-                : `round ${state.round}`}
-          </span>
-          <span className="turn-badge">
-            move {index} / {states.length - 1}
-          </span>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", gap: 10, padding: "12px 16px 8px", overflow: "hidden", background: "radial-gradient(1200px 700px at 50% -10%, #101622 0%, #07090d 55%)", color: C.ink, fontFamily: F.body, fontSize: 14 }}>
+      <header style={{ flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "2px 4px 10px", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 9, flex: "none" }}>
+          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", color: C.ember, textShadow: "0 0 14px rgba(255,160,21,0.45)" }}>⌂</span>
+          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", background: "linear-gradient(90deg, #ffffff, #ffa015)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>Agricogla</span>
+          <span style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase" }}>replay</span>
         </div>
-        <div className="header-controls">
-          <button className="mini" onClick={() => setPlaying((p) => !p)}>
-            {playing ? "⏸ pause" : "▶ play"}
-          </button>
-          <button
-            className="mini"
-            onClick={() => {
-              setPlaying(false);
-              setIndex((i) => Math.max(0, i - 1));
-            }}
-          >
-            ⏮ back
-          </button>
-          <button
-            className="mini"
-            onClick={() => {
-              setPlaying(false);
-              setIndex((i) => Math.min(states.length - 1, i + 1));
-            }}
-          >
-            ⏭ step
-          </button>
-          <select
-            className="controller-select"
-            value={speedMs}
-            onChange={(e) => setSpeedMs(Number(e.target.value))}
-            title="playback speed"
-          >
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>Round</span>
+          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{state.round}/14</span>
+        </div>
+        <span style={{ fontFamily: F.mono, fontSize: 11, padding: "5px 10px", borderRadius: 999, border: "1px solid #233140", color: C.cyan, whiteSpace: "nowrap" }}>
+          {state.phase === "finished" ? "GAME OVER" : nh ? `harvest after R${nh}` : ""}
+        </span>
+        <span style={{ flex: 1 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "none" }}>
+          <span style={{ fontFamily: F.mono, fontSize: 11, color: C.inkDim }}>move {index} / {states.length - 1}</span>
+          <button className="mini" onClick={() => setPlaying((p) => !p)}>{playing ? "⏸ pause" : "▶ play"}</button>
+          <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.max(0, i - 1)); }}>⏮ back</button>
+          <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.min(states.length - 1, i + 1)); }}>⏭ step</button>
+          <select value={speedMs} onChange={(e) => setSpeedMs(Number(e.target.value))} title="playback speed">
             {SPEEDS.map((s) => (
-              <option key={s.ms} value={s.ms}>
-                {s.label}
-              </option>
+              <option key={s.ms} value={s.ms}>{s.label}</option>
             ))}
           </select>
-          <input
-            type="range"
-            min={0}
-            max={states.length - 1}
-            value={index}
-            onChange={(e) => {
-              setPlaying(false);
-              setIndex(Number(e.target.value));
-            }}
-          />
+          <input type="range" min={0} max={states.length - 1} value={index} onChange={(e) => { setPlaying(false); setIndex(Number(e.target.value)); }} style={{ width: 160 }} />
         </div>
       </header>
 
-      <main className="table-view">
-        <div className="board-column">
-          <ActionBoard state={state} options={null} myTurn={false} onPick={() => {}} />
-          <EventLog state={state} />
-        </div>
-        <div className="farms-column">
-          {state.players.map((p) => (
-            <PlayerPanel
-              key={p.idx}
-              state={state}
-              player={p}
-              handSizes={handSizes[p.idx]}
-              controller={undefined}
-              isMe={false}
-              isActive={
-                state.phase === "work"
-                  ? state.currentPlayer === p.idx
-                  : state.toFeed.includes(p.idx)
-              }
-              compactFarm
-            />
-          ))}
-        </div>
-      </main>
+      <GlobalView state={state} messages={[]} log={state.log} mySeat={null} />
 
-      {atEnd && state.phase === "finished" && <ScoreBoard state={state} />}
+      {atEnd && state.phase === "finished" && <ScoreBoard state={state} onNewGame={() => setIndex(0)} />}
     </div>
   );
 }
@@ -180,7 +122,7 @@ export function ReplayApp() {
   if (!payload) {
     return (
       <div className="loading">
-        <h1>Agricola — replay</h1>
+        <h1>⌂ Agricogla — replay</h1>
         <p>{connected ? "loading replay…" : "connecting…"}</p>
       </div>
     );

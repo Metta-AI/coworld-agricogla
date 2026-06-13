@@ -7,6 +7,8 @@ export interface AgentView {
   playerIdx: number;
   options: ActionOption[];
   choices: PlayerChoices;
+  /** Operator autopilot directive, prepended to the prompt every decision. */
+  guidance?: string;
 }
 
 export interface Agent {

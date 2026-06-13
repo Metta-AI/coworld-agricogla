@@ -90,13 +90,13 @@ const manifest = {
   game: {
     name: "agricogla",
     description:
-      "Head-to-head Agricola: the classic worker-placement farming board game. " +
+      "Head-to-head Agricogla: the classic worker-placement farming board game. " +
       "Plow, sow, fence, breed and feed your family across 14 rounds and six harvests; " +
       "every move is validated by a full rules engine.",
     owner: "daveey@gmail.com",
     runnable: {
       type: "game",
-      image: "{{AGRICOLA_IMAGE}}",
+      image: "{{AGRICOGLA_IMAGE}}",
       run: GAME_RUN,
       source_url: REPO_URL,
     },
@@ -122,7 +122,7 @@ const manifest = {
       id: "scripted-baseline",
       name: "Scripted Baseline",
       type: "player",
-      image: "{{AGRICOLA_IMAGE}}",
+      image: "{{AGRICOGLA_IMAGE}}",
       run: PLAYER_RUN,
       source_url: REPO_URL,
       description:
@@ -154,7 +154,7 @@ const manifest = {
         act_timeout_seconds: 20,
         player_connect_timeout_seconds: 180,
       },
-      description: "Head-to-head Agricola with a random seed per episode.",
+      description: "Head-to-head Agricogla with a random seed per episode.",
     },
   ],
   certification: {

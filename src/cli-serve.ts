@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     paceMs: opts.pace,
     distDir,
   });
-  console.log(`Agricola server on http://localhost:${handle.port}`);
+  console.log(`Agricogla server on http://localhost:${handle.port}`);
   console.log(`  table view:   http://localhost:${handle.port}/`);
   for (let i = 0; i < opts.players; i++) {
     console.log(`  player ${i}:    http://localhost:${handle.port}/player/${i} (${opts.controllers[i]})`);

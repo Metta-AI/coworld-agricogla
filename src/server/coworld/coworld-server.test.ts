@@ -18,7 +18,7 @@ function workspace(config: object): {
   resultsUri: string;
   saveReplayUri: string;
 } {
-  const dir = mkdtempSync(join(tmpdir(), "agricola-coworld-"));
+  const dir = mkdtempSync(join(tmpdir(), "agricogla-coworld-"));
   writeFileSync(join(dir, "config.json"), JSON.stringify(config));
   return {
     dir,
@@ -147,9 +147,9 @@ describe("coworld game server", () => {
 
 describe("coworld replay server", () => {
   it("serves a zlib-compressed replay over /replay", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "agricola-replay-"));
+    const dir = mkdtempSync(join(tmpdir(), "agricogla-replay-"));
     const payload: ReplayPayload = {
-      game: "agricola",
+      game: "agricogla",
       seed: 5,
       numPlayers: 2,
       playerNames: ["A", "B"],

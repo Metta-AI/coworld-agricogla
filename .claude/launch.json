@@ -2,13 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "agricola",
+      "name": "agricogla",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview"],
       "autoPort": true
     },
     {
-      "name": "agricola-llm",
+      "name": "agricogla-human",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--agents", "human,scripted,scripted,scripted", "--pace", "350"],
+      "autoPort": true
+    },
+    {
+      "name": "agricogla-llm",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
@@ -17,20 +23,20 @@
       "autoPort": true
     },
     {
-      "name": "agricola-coworld-live",
+      "name": "agricogla-coworld-live",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "COGAME_HOST=127.0.0.1 COGAME_PORT=8587 COGAME_CONFIG_URI=file:///tmp/agricola-coworld/config-live.json COGAME_RESULTS_URI=file:///tmp/agricola-coworld/results-live.json COGAME_SAVE_REPLAY_URI=file:///tmp/agricola-coworld/replay-live exec npx tsx src/server/coworld-main.ts"
+        "COGAME_HOST=127.0.0.1 COGAME_PORT=8587 COGAME_CONFIG_URI=file:///tmp/agricogla-coworld/config-live.json COGAME_RESULTS_URI=file:///tmp/agricogla-coworld/results-live.json COGAME_SAVE_REPLAY_URI=file:///tmp/agricogla-coworld/replay-live exec npx tsx src/server/coworld-main.ts"
       ],
       "port": 8587
     },
     {
-      "name": "agricola-replay",
+      "name": "agricogla-replay",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "COGAME_HOST=127.0.0.1 COGAME_PORT=8586 COGAME_LOAD_REPLAY_URI=file:///tmp/agricola-coworld/replay exec npx tsx src/server/coworld-main.ts"
+        "COGAME_HOST=127.0.0.1 COGAME_PORT=8586 COGAME_LOAD_REPLAY_URI=file:///tmp/agricogla-coworld/replay exec npx tsx src/server/coworld-main.ts"
       ],
       "port": 8586
     }

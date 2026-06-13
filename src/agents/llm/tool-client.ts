@@ -29,10 +29,10 @@ export interface ToolUseClient {
 }
 
 const DEFAULT_MODEL =
-  process.env.AGRICOLA_BEDROCK_MODEL ?? "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+  process.env.AGRICOGLA_BEDROCK_MODEL ?? "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 const DEFAULT_REGION =
-  process.env.AGRICOLA_BEDROCK_REGION ?? process.env.AWS_REGION ?? "us-west-2";
-const DEFAULT_TIMEOUT = Number(process.env.AGRICOLA_BEDROCK_TIMEOUT_MS ?? 30_000);
+  process.env.AGRICOGLA_BEDROCK_REGION ?? process.env.AWS_REGION ?? "us-west-2";
+const DEFAULT_TIMEOUT = Number(process.env.AGRICOGLA_BEDROCK_TIMEOUT_MS ?? 30_000);
 
 export class BedrockToolUseClient implements ToolUseClient {
   #client: BedrockRuntimeClient;
