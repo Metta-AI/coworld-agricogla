@@ -28,11 +28,15 @@ export interface ToolUseClient {
   converse(req: ConverseRequest): Promise<ConverseResult>;
 }
 
+// BEDROCK_MODEL is what `coworld upload-policy --bedrock-model` injects into
+// hosted player pods; AGRICOGLA_BEDROCK_MODEL stays the local override.
 const DEFAULT_MODEL =
-  process.env.AGRICOGLA_BEDROCK_MODEL ?? "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+  process.env.AGRICOGLA_BEDROCK_MODEL ??
+  process.env.BEDROCK_MODEL ??
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 const DEFAULT_REGION =
   process.env.AGRICOGLA_BEDROCK_REGION ?? process.env.AWS_REGION ?? "us-west-2";
-const DEFAULT_TIMEOUT = Number(process.env.AGRICOGLA_BEDROCK_TIMEOUT_MS ?? 30_000);
+const DEFAULT_TIMEOUT = Number(process.env.AGRICOGLA_BEDROCK_TIMEOUT_MS ?? 20_000);
 
 export class BedrockToolUseClient implements ToolUseClient {
   #client: BedrockRuntimeClient;
@@ -56,7 +60,9 @@ export class BedrockToolUseClient implements ToolUseClient {
       toolConfig: { tools: req.tools },
       inferenceConfig: {
         maxTokens: req.maxTokens ?? 1024,
-        temperature: req.temperature ?? 0.6,
+        // Newer Claude models reject `temperature` on Bedrock Converse
+        // ("deprecated for this model"); only send it when asked for.
+        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
       },
     });
     const response = await this.#client.send(command);
