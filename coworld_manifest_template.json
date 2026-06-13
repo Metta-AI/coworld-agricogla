@@ -121,7 +121,7 @@
     "docs": {
       "readme": {
         "type": "text",
-        "value": "# Agricogla\n\nA full digital port of the classic worker-placement board game: build out\nyour farm over 14 rounds — plow fields, sow grain and vegetables, fence\npastures, raise sheep, boar and cattle, grow your family, and keep everyone\nfed through six harvests. Highest score after round 14 wins.\n\nThis Coworld plays **head-to-head (2 players)**. Each seat is driven by a\npolicy container speaking a simple JSON-over-WebSocket protocol; the game\nvalidates every move against the rules engine, so you cannot make an\nillegal move — bad replies are rejected with an explanation (3 attempts per\ndecision, then a scripted heuristic takes that turn so games always finish).\n\n## Playing\n\n- Read the **player protocol** doc for the wire format. In short: connect to\n  `COWORLD_PLAYER_WS_URL`, receive `observation` messages with the full\n  visible game state plus your legal `options` and parameter `choices`, and\n  reply with a placement or feeding decision.\n- The **rules overview** doc covers scoring and the action board; the\n  in-game `state.log` narrates everything that happens.\n- A baseline scripted policy ships with the Coworld (`scripted-baseline`) —\n  beat it before entering a league.\n\n## Strategy in one paragraph\n\nFood is the clock: harvests hit after rounds 4, 7, 9, 11, 13 and 14, and\nevery family member needs 2 food per harvest (begging is -3 points per\nmissing food). Build a food engine early (fireplace + animals, or\ngrain + oven), grow the family when you can afford the extra mouth, and\ndiversify — every scoring category you ignore costs points: fields,\npastures, grain, vegetables, sheep, boar, cattle, unused spaces, room\nupgrades, family. Occupations and minor improvements are this port's own\n51 + 48 card deck built on the canonical archetypes.\n\n## Watching\n\nLive games: `GET /client/global` (table view). Per-seat view:\n`GET /client/player?slot=N&token=…`. Finished episodes replay in the\nbrowser with autoplay + scrubbing via `GET /client/replay`.\n"
+        "value": "# Agricogla\n\nA full digital port of the classic worker-placement board game: build out\nyour farm over 14 rounds — plow fields, sow grain and vegetables, fence\npastures, raise sheep, boar and cattle, grow your family, and keep everyone\nfed through six harvests. Highest score after round 14 wins.\n\nThis Coworld plays **head-to-head (2 players)**. Each seat is driven by a\npolicy container speaking a simple JSON-over-WebSocket protocol; the game\nvalidates every move against the rules engine, so you cannot make an\nillegal move — bad replies are rejected with an explanation (3 attempts per\ndecision, then a scripted heuristic takes that turn so games always finish).\n\n## Playing\n\n- Read the **player protocol** doc for the wire format. In short: connect to\n  `COWORLD_PLAYER_WS_URL`, receive `observation` messages with the full\n  visible game state plus your legal `options` and parameter `choices`, and\n  reply with a placement or feeding decision.\n- The **rules overview** doc covers scoring and the action board; the\n  in-game `state.log` narrates everything that happens.\n- Two baseline policies ship with the Coworld: `scripted-baseline` (a\n  heuristic autopilot) and `llm-baseline` (a Bedrock tool-use agent that\n  falls back to the heuristic on any timeout or error). Beat them before\n  entering a league.\n\n## Strategy in one paragraph\n\nFood is the clock: harvests hit after rounds 4, 7, 9, 11, 13 and 14, and\nevery family member needs 2 food per harvest (begging is -3 points per\nmissing food). Build a food engine early (fireplace + animals, or\ngrain + oven), grow the family when you can afford the extra mouth, and\ndiversify — every scoring category you ignore costs points: fields,\npastures, grain, vegetables, sheep, boar, cattle, unused spaces, room\nupgrades, family. Occupations and minor improvements are this port's own\n51 + 48 card deck built on the canonical archetypes.\n\n## Watching\n\nLive games: `GET /client/global` (table view). Per-seat view:\n`GET /client/player?slot=N&token=…`. Finished episodes replay in the\nbrowser with autoplay + scrubbing via `GET /client/replay`.\n"
       },
       "pages": [
         {
@@ -148,6 +148,19 @@
       ],
       "source_url": "https://github.com/Metta-AI/cogame-agricogla",
       "description": "Heuristic baseline: values food security, family growth and board coverage; the same policy backs the in-game scripted fallback."
+    },
+    {
+      "id": "llm-baseline",
+      "name": "LLM Baseline (Bedrock)",
+      "type": "player",
+      "image": "{{AGRICOGLA_IMAGE}}",
+      "run": [
+        "npx",
+        "tsx",
+        "src/agents/coworld-llm-player.ts"
+      ],
+      "source_url": "https://github.com/Metta-AI/cogame-agricogla",
+      "description": "Bedrock tool-use agent (default model claude-haiku-4-5, region us-west-2): reads the full visible state and legal options and answers via engine-validated tool calls, falling back to the scripted heuristic on any timeout or error. Needs Bedrock credentials — locally via `--use-bedrock`, hosted via `upload-policy --use-bedrock --bedrock-model …`; without them every turn uses the scripted fallback."
     }
   ],
   "commissioner": [

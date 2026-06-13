@@ -41,8 +41,12 @@ export class GameSocket {
   }
 
   connect(): void {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${location.host}/ws`);
+    // Resolve /ws against <base href> so the live spectator/seat sockets follow
+    // the same path prefix the page is served under (root locally, .../proxy/
+    // behind the Observatory hosted proxy).
+    const url = new URL("ws", document.baseURI);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(url);
     this.#ws = ws;
     ws.onopen = () => {
       this.feed.connected = true;
@@ -106,6 +110,12 @@ export class GameSocket {
   /** The seat this client is playing, or null when spectating the table. */
   get seat(): number | null {
     return this.#playerIdx;
+  }
+
+  /** Re-claim a seat (or null to spectate) live, without reloading the page. */
+  claimSeat(playerIdx: number | null): void {
+    this.#playerIdx = playerIdx;
+    this.#send({ type: "hello", playerIdx, token: this.#token });
   }
 
   setGuidance(playerIdx: number, text: string): void {

@@ -109,14 +109,41 @@ export function ReplayApp() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${location.host}/replay`);
-    ws.onopen = () => setConnected(true);
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data as string) as { type: string; payload: ReplayPayload };
-      if (message.type === "replay") setPayload(message.payload);
+    // Resolve /replay against <base href> so it follows the same path prefix
+    // the page is served under (root locally, .../proxy/ behind the hosted
+    // replay proxy), then swap http(s) for ws(s).
+    const url = new URL("replay", document.baseURI);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+
+    let ws: WebSocket | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let done = false;
+    // The hosted replay pod may not be accepting the socket the instant the
+    // page loads, so reconnect until we receive the one-shot replay frame.
+    const connect = () => {
+      ws = new WebSocket(url);
+      ws.onopen = () => setConnected(true);
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data as string) as { type: string; payload: ReplayPayload };
+        if (message.type === "replay") {
+          done = true;
+          setPayload(message.payload);
+          ws?.close();
+        }
+      };
+      ws.onclose = () => {
+        if (done) return;
+        setConnected(false);
+        retry = setTimeout(connect, 1000);
+      };
     };
-    return () => ws.close();
+    connect();
+
+    return () => {
+      done = true;
+      if (retry) clearTimeout(retry);
+      ws?.close();
+    };
   }, []);
 
   if (!payload) {

@@ -3,12 +3,12 @@ import { computePastures } from "../shared/engine/farmyard";
 import { AnimalType, COLS, PlayerState, ROWS, spaceIndex } from "../shared/engine/types";
 import { STABLE_SRC, TOKEN_SRC } from "./Token";
 
-const TILE_GRASS = "/art/tile-grass.png";
-const TILE_FIELD = "/art/tile-field.png";
+const TILE_GRASS = "art/tile-grass.png";
+const TILE_FIELD = "art/tile-field.png";
 const TILE_ROOM: Record<string, string> = {
-  wood: "/art/tile-room-wood.png",
-  clay: "/art/tile-room-clay.png",
-  stone: "/art/tile-room-stone.png",
+  wood: "art/tile-room-wood.png",
+  clay: "art/tile-room-clay.png",
+  stone: "art/tile-room-stone.png",
 };
 
 const CELL = 64;

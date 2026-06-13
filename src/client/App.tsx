@@ -3,7 +3,7 @@ import { computeAutoFeed } from "../shared/engine/apply";
 import { legalActions, playerChoices } from "../shared/engine/legal";
 import { Placement } from "../shared/engine/placements";
 import { GameState } from "../shared/engine/types";
-import { DEFAULT_BEDROCK_MODEL } from "../shared/protocol";
+import { Controller, DEFAULT_BEDROCK_MODEL } from "../shared/protocol";
 import { FeedDialog, PlacementDialog } from "./Dialogs";
 import { GameSocket } from "./net";
 import { ReplayApp } from "./Replay";
@@ -13,9 +13,11 @@ import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F, nextHarvest, STAGE_CHIPS, stageOf } from "./agricogla/theme";
 
 function routeSeat(): { playerIdx: number | null; token?: string } {
-  const match = /^\/player\/(\d+)/.exec(location.pathname);
+  // Match by path suffix: behind the Observatory hosted proxy the pathname is
+  // prefixed (.../sessions/<id>/proxy/client/player), so exact matches fail.
+  const match = /\/player\/(\d+)\/?$/.exec(location.pathname);
   if (match) return { playerIdx: Number(match[1]) };
-  if (location.pathname === "/client/player") {
+  if (location.pathname.endsWith("/client/player")) {
     const params = new URLSearchParams(location.search);
     const slot = Number(params.get("slot"));
     if (Number.isInteger(slot) && slot >= 0) {
@@ -26,7 +28,7 @@ function routeSeat(): { playerIdx: number | null; token?: string } {
 }
 
 export function App() {
-  if (location.pathname === "/client/replay") return <ReplayApp />;
+  if (location.pathname.endsWith("/client/replay")) return <ReplayApp />;
   return <GameApp />;
 }
 
@@ -41,10 +43,11 @@ const mono = F.mono;
 function GameApp() {
   const [, setTick] = useState(0);
   const seat = routeSeat();
-  const mySeat = seat.playerIdx;
+  // Seat is URL-derived initially, but can be re-claimed live via the seat menu.
+  const [mySeat, setMySeat] = useState<number | null>(seat.playerIdx);
   const socketRef = useRef<GameSocket | null>(null);
   if (!socketRef.current) {
-    socketRef.current = new GameSocket(mySeat, () => setTick((t) => t + 1), seat.token);
+    socketRef.current = new GameSocket(seat.playerIdx, () => setTick((t) => t + 1), seat.token);
   }
   const socket = socketRef.current;
   useEffect(() => {
@@ -57,6 +60,10 @@ function GameApp() {
   const [frames, setFrames] = useState<Frame[]>([]);
   // Final-scoring modal can be dismissed to explore the timeline, then reopened.
   const [scoreClosed, setScoreClosed] = useState(false);
+  // Seat-takeover menu (right-click a player tab). prevController remembers each
+  // seat's controller before takeover so "observe" hands it back to the same AI.
+  const prevControllerRef = useRef<Record<number, Controller>>({});
+  const [seatMenu, setSeatMenu] = useState<{ seat: number; x: number; y: number } | null>(null);
 
   const { state, status, prompts, chat, lastError, connected } = socket.feed;
 
@@ -131,6 +138,24 @@ function GameApp() {
   };
   const sendChat = (to: number | null, text: string) => socket.sendChat(to, text);
 
+  // ---- seat takeover (right-click a player tab) ----
+  const takeControl = (idx: number) => {
+    // Hand any seat we were already driving back to its AI first.
+    if (mySeat !== null && mySeat !== idx) {
+      socket.setController(mySeat, prevControllerRef.current[mySeat] ?? "llm");
+    }
+    prevControllerRef.current[idx] = status.controllers[idx] ?? "scripted";
+    socket.setController(idx, "human");
+    socket.claimSeat(idx);
+    setMySeat(idx);
+    setView(`p${idx}`);
+  };
+  const observeSeat = (idx: number) => {
+    socket.setController(idx, prevControllerRef.current[idx] ?? "llm");
+    socket.claimSeat(null);
+    setMySeat(null);
+  };
+
   // ---- header bits ----
   const tabs = [
     { id: "global", label: "GLOBAL", color: undefined as string | undefined },
@@ -190,6 +215,15 @@ function GameApp() {
               <button
                 key={t.id}
                 onClick={() => setView(t.id)}
+                onContextMenu={
+                  t.id.startsWith("p") && !status.readOnly
+                    ? (e) => {
+                        e.preventDefault();
+                        setSeatMenu({ seat: Number(t.id.slice(1)), x: e.clientX, y: e.clientY });
+                      }
+                    : undefined
+                }
+                title={t.id.startsWith("p") && !status.readOnly ? "right-click to control / observe this seat" : undefined}
                 style={{
                   background: active ? "#1c2230" : "transparent",
                   border: `1px solid ${active ? t.color ?? C.ember : C.border}`,
@@ -379,6 +413,68 @@ function GameApp() {
           onClose={() => setScoreClosed(true)}
         />
       )}
+
+      {/* ===== seat control / observe menu ===== */}
+      {seatMenu &&
+        (() => {
+          const idx = seatMenu.seat;
+          const name = state.players[idx]?.name ?? `Seat ${idx}`;
+          const controlling = mySeat === idx;
+          const itemStyle: CSSProperties = {
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            background: "transparent",
+            border: "none",
+            color: C.ink,
+            fontFamily: mono,
+            fontSize: 11.5,
+            letterSpacing: "0.03em",
+            padding: "8px 13px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          };
+          return (
+            <>
+              <div
+                onClick={() => setSeatMenu(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSeatMenu(null);
+                }}
+                style={{ position: "fixed", inset: 0, zIndex: 99 }}
+              />
+              <div
+                style={{
+                  position: "fixed",
+                  left: Math.min(seatMenu.x, window.innerWidth - 200),
+                  top: seatMenu.y,
+                  zIndex: 100,
+                  minWidth: 176,
+                  background: C.panel,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 10,
+                  boxShadow: "0 12px 34px rgba(0,0,0,0.6)",
+                  overflow: "hidden",
+                  padding: "4px 0",
+                }}
+              >
+                <div style={{ padding: "6px 13px 7px", fontFamily: mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.borderSoft}` }}>
+                  {name}
+                </div>
+                {controlling ? (
+                  <button style={itemStyle} onClick={() => { observeSeat(idx); setSeatMenu(null); }}>
+                    Observe — release to AI
+                  </button>
+                ) : (
+                  <button style={itemStyle} onClick={() => { takeControl(idx); setSeatMenu(null); }}>
+                    Control this seat
+                  </button>
+                )}
+              </div>
+            </>
+          );
+        })()}
     </div>
   );
 }
