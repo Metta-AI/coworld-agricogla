@@ -60,6 +60,7 @@ export const majors: CardDef[] = [
     vp: 2,
     text: "When you buy this, you may bake bread immediately. Bake bread: at most 1 grain becomes 5 food.",
     bake: { perGrain: 5, maxGrain: 1 },
+    immediateBake: true,
   },
   {
     id: "stone_oven",
@@ -69,6 +70,7 @@ export const majors: CardDef[] = [
     vp: 3,
     text: "When you buy this, you may bake bread immediately. Bake bread: at most 2 grain become 4 food each.",
     bake: { perGrain: 4, maxGrain: 2 },
+    immediateBake: true,
   },
   {
     id: "joinery",

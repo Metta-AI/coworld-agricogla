@@ -3,8 +3,6 @@ import { CardDef, gain } from "./types";
 /** The minor improvement deck. Card names and texts are this port's own;
  *  mechanics follow the base-deck archetypes. All effects are implemented. */
 
-const GROWTH_ACTIONS = ["r_family_growth", "r_urgent_family"];
-
 export const minors: CardDef[] = [
   // --- plows ----------------------------------------------------------------
   {
@@ -420,8 +418,8 @@ export const minors: CardDef[] = [
     cost: { wood: 1 },
     vp: 1,
     text: "After each family growth action you take, gain 2 food.",
-    onAction: (ctx, spaceId) => {
-      if (GROWTH_ACTIONS.includes(spaceId)) {
+    onAction: (ctx, _spaceId, performed) => {
+      if (performed.includes("growth")) {
         ctx.player.resources.food += 2;
         ctx.emit("card", `${ctx.player.name} gains 2 food (Cradle)`);
       }
