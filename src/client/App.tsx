@@ -160,7 +160,8 @@ function GameApp() {
     gap: 10,
     padding: "12px 16px 8px",
     overflow: "hidden",
-    background: "radial-gradient(1200px 700px at 50% -10%, #101622 0%, #07090d 55%)",
+    background:
+      "radial-gradient(1200px 700px at 50% -10%, rgba(16,22,34,0.82) 0%, rgba(7,9,13,0.92) 55%), url(/art/texture-stage.png) center/cover no-repeat, #07090d",
     color: C.ink,
     fontFamily: F.body,
     fontSize: 14,
@@ -171,9 +172,7 @@ function GameApp() {
       {/* ===== header ===== */}
       <header style={{ flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "2px 4px 10px", borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 9, flex: "none" }}>
-          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", color: C.ember, textShadow: "0 0 14px rgba(255,160,21,0.45)" }}>⌂</span>
-          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", background: "linear-gradient(90deg, #ffffff, #ffa015)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>Agricogla</span>
-          <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase" }}>cogame table</span>
+          <img src="/art/logo-wordmark.png" alt="Agricogla" style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
         </div>
 
         <nav style={{ display: "flex", gap: 4, flex: "none" }}>
