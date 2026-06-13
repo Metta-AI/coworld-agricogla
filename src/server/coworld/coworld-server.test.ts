@@ -149,7 +149,7 @@ describe("coworld replay server", () => {
   it("serves a zlib-compressed replay over /replay", async () => {
     const dir = mkdtempSync(join(tmpdir(), "agricola-replay-"));
     const payload: ReplayPayload = {
-      game: "agricola",
+      game: "agricogla",
       seed: 5,
       numPlayers: 2,
       playerNames: ["A", "B"],

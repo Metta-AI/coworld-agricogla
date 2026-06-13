@@ -154,7 +154,7 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
         method: artifactMethod("COGAME_RESULTS_METHOD"),
       });
       const replay: ReplayPayload = {
-        game: "agricola",
+        game: "agricogla",
         seed,
         numPlayers,
         playerNames,
@@ -186,7 +186,7 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
   await new Promise<void>((resolve) => server.listen(opts.port, opts.host, resolve));
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : opts.port;
-  console.log(`[coworld] agricola game server on ${opts.host}:${port} (${numPlayers} players)`);
+  console.log(`[coworld] agricogla game server on ${opts.host}:${port} (${numPlayers} players)`);
 
   return {
     server,
@@ -252,7 +252,7 @@ export async function startReplayServer(opts: ReplayServerOpts): Promise<ReplayS
   await new Promise<void>((resolve) => server.listen(opts.port, opts.host, resolve));
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : opts.port;
-  console.log(`[coworld] agricola replay server on ${opts.host}:${port}`);
+  console.log(`[coworld] agricogla replay server on ${opts.host}:${port}`);
 
   return {
     server,

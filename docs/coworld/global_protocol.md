@@ -25,7 +25,7 @@ In replay mode (`COGAME_LOAD_REPLAY_URI`), the `/replay` WebSocket sends one
 frame on connect:
 
 ```jsonc
-{ "type": "replay", "payload": { "game": "agricola", "seed": 5, "numPlayers": 2,
+{ "type": "replay", "payload": { "game": "agricogla", "seed": 5, "numPlayers": 2,
     "playerNames": [ … ], "actions": [ … ], "results": { … } } }
 ```
 
