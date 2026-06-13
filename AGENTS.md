@@ -37,6 +37,24 @@ npm run smoke            # Playwright e2e (builds web first)
 Always run `npm test && npm run typecheck` before committing; run the smoke
 suite when the server, protocol, or client changed.
 
+## Production deployment
+
+agricogla runs at **https://agricogla.dbloom.in** on a shared EC2 origin behind a
+Cloudflare Tunnel (same box as `polis.dbloom.in`). Fast path:
+
+```bash
+npm run deploy:prod              # build main -> S3 -> SSM swap -> restart -> verify
+npm run deploy:prod -- --ref X   # deploy a specific git ref
+```
+
+[`scripts/deploy-prod.sh`](scripts/deploy-prod.sh) builds the ref in a throwaway
+worktree, ships the artifact to S3, swaps `/opt/agricogla/app` over **SSM** (no
+SSH key on the box), restarts the service with rollback-on-failure, and verifies
+`/health` + `/version` (the per-deploy `deployId`) locally and through the
+tunnel. Commit before deploying — it builds from committed git state. Full
+topology, the one-time provisioning, and how to drive the box over SSM are in
+[`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ## Coworld mode
 
 `src/server/coworld-main.ts` is the Softmax Coworld entrypoint (rollout +

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-server/
+.deploy-version.json
 test-results/
 playwright-report/
 *.log
