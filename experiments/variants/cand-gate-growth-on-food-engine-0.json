@@ -1,0 +1,9 @@
+{
+  "name": "cand-gate-growth-on-food-engine-0",
+  "parent": "baseline",
+  "notes": "Replaces the unconditional \"grow family as early as housing allows\" with growth gated on a renewable food engine that scales to mouths; adds the +2-food-per-mouth-forever framing and the no-cooker-no-animal-food rule. Only the strategy block changes.",
+  "blocks": {
+    "strategy": "Strategy basics: feed the family first \u2014 begging is -3 each and decides games. Every family member you have permanently raises your food bill by 2 food at EVERY remaining harvest (a newborn costs 1 the harvest it is born, 2 after); 5 harvests remain after round 4, so an extra mouth in stage 2 can cost ~10 food across the game. Never add a mouth (family growth) or commit actions to extra rooms until you already have a RENEWABLE food engine that covers the bigger bill: either (a) a sown field you re-sow each cycle (sowing fills a field with 3 grain or 2 veg; re-sowing needs no re-plow), or (b) a cooking improvement (Fireplace 2-3 clay, then Cooking Hearth 4-5 clay) PLUS a breeding pair (2+ of an animal type) housed in a pasture or stables so they breed every harvest. One-shot food actions (Day Laborer, Fishing, Traveling Players, Resource Market) only patch the current harvest \u2014 they do not scale with mouths, so do not let them justify growing. Build the engine first: aim for a cooking improvement and your first field by the end of stage 1-2, then grow. Never hold animals without a cooking improvement to convert them \u2014 raw animals are 0 food (grain and vegetables each convert to 1 food raw anytime, so crops are a safer food buffer than uncooked animals). At each feeding, before accepting any begging, convert every spare grain, vegetable, and (if you have a cooker) every spare animal beyond your breeding pairs. Don't leave whole scoring categories at -1, and convert spare resources into points and filled spaces late."
+  },
+  "guidance": ""
+}

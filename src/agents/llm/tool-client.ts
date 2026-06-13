@@ -2,6 +2,7 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
   Message,
+  SystemContentBlock,
   Tool,
 } from "@aws-sdk/client-bedrock-runtime";
 
@@ -11,17 +12,30 @@ export interface ContentBlockLike {
   toolUse?: { name?: string; input?: unknown };
 }
 
+/** Token accounting, including Bedrock prompt-cache hits/writes. */
+export interface ConverseUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheWriteInputTokens: number;
+}
+
 export interface ConverseRequest {
   system: string;
   messages: Message[];
   tools: Tool[];
   maxTokens?: number;
   temperature?: number;
+  /** Insert Bedrock cache breakpoints after the system prompt and the tool
+   *  schema (the constant prefix) so repeated decisions in a game re-read the
+   *  cache instead of re-paying for those tokens. */
+  cache?: boolean;
 }
 
 export interface ConverseResult {
   content: ContentBlockLike[];
   stopReason?: string;
+  usage?: ConverseUsage;
 }
 
 export interface ToolUseClient {
@@ -53,11 +67,18 @@ export class BedrockToolUseClient implements ToolUseClient {
   }
 
   async converse(req: ConverseRequest): Promise<ConverseResult> {
+    const cachePoint = { cachePoint: { type: "default" as const } };
+    const system: SystemContentBlock[] = req.cache
+      ? [{ text: req.system }, cachePoint]
+      : [{ text: req.system }];
+    // A cache point after the tools array caches the (constant) system prompt
+    // + tool schema; the per-turn user message stays uncached.
+    const tools: Tool[] = req.cache ? [...req.tools, cachePoint] : req.tools;
     const command = new ConverseCommand({
       modelId: this.#model,
-      system: [{ text: req.system }],
+      system,
       messages: req.messages,
-      toolConfig: { tools: req.tools },
+      toolConfig: { tools },
       inferenceConfig: {
         maxTokens: req.maxTokens ?? 1024,
         // Newer Claude models reject `temperature` on Bedrock Converse
@@ -66,9 +87,16 @@ export class BedrockToolUseClient implements ToolUseClient {
       },
     });
     const response = await this.#client.send(command);
+    const u = response.usage;
     return {
       content: response.output?.message?.content ?? [],
       stopReason: response.stopReason,
+      usage: {
+        inputTokens: u?.inputTokens ?? 0,
+        outputTokens: u?.outputTokens ?? 0,
+        cacheReadInputTokens: u?.cacheReadInputTokens ?? 0,
+        cacheWriteInputTokens: u?.cacheWriteInputTokens ?? 0,
+      },
     };
   }
 }
