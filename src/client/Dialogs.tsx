@@ -31,6 +31,20 @@ export function GoodsChips({ goods }: { goods: Goods }) {
   );
 }
 
+/** Bounded amount picker — a select of min..max integers (replaces number inputs). */
+function AmountSelect({ value, max, min = 0, onChange }: { value: number; max: number; min?: number; onChange: (n: number) => void }) {
+  const hi = Math.max(min, max, value);
+  return (
+    <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {Array.from({ length: hi - min + 1 }, (_, i) => min + i).map((n) => (
+        <option key={n} value={n}>
+          {n}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export interface DialogProps {
   spaceId: string;
   state: GameState;
@@ -258,13 +272,7 @@ function ImprovementPicker(props: ImprovementPickerProps) {
         <div className="dialog-row">
           <label>
             Grain to bake (worth {card.bake!.perGrain} food each):{" "}
-            <input
-              type="number"
-              min={0}
-              max={max}
-              value={bakeGrain}
-              onChange={(e) => setBakeGrain(Math.max(0, Math.min(max, Number(e.target.value))))}
-            />
+            <AmountSelect value={bakeGrain} max={max} onChange={setBakeGrain} />
           </label>
         </div>
         <DryRunError error={error} />
@@ -474,14 +482,12 @@ function SowBakeDialog(props: DialogProps & { withPlow?: boolean }) {
           {props.choices.bakeOptions.map((b) => (
             <label key={b.card}>
               {b.name} ({b.perGrain} food/grain, max {b.maxGrain}):{" "}
-              <input
-                type="number"
-                min={0}
-                max={Math.min(b.maxGrain, me.resources.grain - grainUsed)}
+              <AmountSelect
                 value={bake.get(b.card) ?? 0}
-                onChange={(e) => {
+                max={Math.min(b.maxGrain, me.resources.grain - grainUsed)}
+                onChange={(n) => {
                   const next = new Map(bake);
-                  next.set(b.card, Math.max(0, Number(e.target.value)));
+                  next.set(b.card, n);
                   setBake(next);
                 }}
               />
@@ -631,14 +637,12 @@ export function FeedDialog({ state, playerIdx, choices, onSubmit, onAuto }: Feed
             <label key={k}>
               <Token good={opt.good as Good} size={18} /> {opt.good} → {opt.foodEach} food (
               {opt.name}, max {opt.max}):{" "}
-              <input
-                type="number"
-                min={0}
-                max={opt.max}
+              <AmountSelect
                 value={counts.get(k) ?? 0}
-                onChange={(e) => {
+                max={opt.max}
+                onChange={(n) => {
                   const next = new Map(counts);
-                  next.set(k, Math.max(0, Math.min(opt.max, Number(e.target.value))));
+                  next.set(k, n);
                   setCounts(next);
                 }}
               />

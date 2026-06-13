@@ -267,15 +267,6 @@ select {
   font-size: 13px;
   font-weight: 600;
 }
-.modal input[type="number"],
-.dialog-col input[type="number"] {
-  width: 66px;
-  padding: 4px 7px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--field);
-  color: var(--ink);
-}
 select {
   border-radius: 7px;
   border: 1px solid var(--border);
