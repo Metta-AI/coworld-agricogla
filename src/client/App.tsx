@@ -40,6 +40,19 @@ interface Frame {
 
 const mono = F.mono;
 
+/** Small robot glyph marking a seat that the autopilot model is playing. */
+function RobotIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
+      <circle cx="12" cy="3.5" r="1" fill="currentColor" stroke="none" />
+      <path d="M12 4.5V8" />
+      <rect x="5" y="8" width="14" height="11" rx="3" />
+      <circle cx="9.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function GameApp() {
   const [, setTick] = useState(0);
   const seat = routeSeat();
@@ -129,7 +142,7 @@ function GameApp() {
   const msgCountByRound: Record<number, number> = {};
   for (const m of chat) msgCountByRound[m.round] = (msgCountByRound[m.round] ?? 0) + 1;
 
-  const autoOn = mySeat !== null && status.controllers[mySeat] === "llm";
+  const autoOn = mySeat !== null && status.controllers[mySeat] !== "human";
   const thinking = status.thinking === mySeat && mySeat !== null;
 
   const submitPlacement = (placement: Placement) => {
@@ -138,32 +151,51 @@ function GameApp() {
   };
   const sendChat = (to: number | null, text: string) => socket.sendChat(to, text);
 
-  // ---- seat takeover (right-click a player tab) ----
-  const takeControl = (idx: number) => {
-    // Hand any seat we were already driving back to its AI first.
-    if (mySeat !== null && mySeat !== idx) {
+  // ---- seat mode (right-click a player tab): observe / control / autopilot ----
+  // Leaving a seat we were manually driving hands it back to an AI so the game
+  // never stalls on an empty human seat.
+  const releasePriorSeat = (next: number | null) => {
+    if (mySeat !== null && mySeat !== next && status.controllers[mySeat] === "human") {
       socket.setController(mySeat, prevControllerRef.current[mySeat] ?? "llm");
     }
+  };
+  const takeControl = (idx: number) => {
+    releasePriorSeat(idx);
     prevControllerRef.current[idx] = status.controllers[idx] ?? "scripted";
     socket.setController(idx, "human");
     socket.claimSeat(idx);
     setMySeat(idx);
     setView(`p${idx}`);
   };
+  const autopilotSeat = (idx: number) => {
+    releasePriorSeat(idx);
+    // Keep a scripted brain if it already has one; otherwise hand it to an LLM.
+    socket.setController(idx, status.controllers[idx] === "scripted" ? "scripted" : "llm");
+    socket.claimSeat(idx);
+    setMySeat(idx);
+    setView(`p${idx}`);
+  };
   const observeSeat = (idx: number) => {
-    socket.setController(idx, prevControllerRef.current[idx] ?? "llm");
-    socket.claimSeat(null);
-    setMySeat(null);
+    if (mySeat === idx) {
+      if (status.controllers[idx] === "human") {
+        socket.setController(idx, prevControllerRef.current[idx] ?? "llm");
+      }
+      socket.claimSeat(null);
+      setMySeat(null);
+    }
+    setView(`p${idx}`);
   };
 
   // ---- header bits ----
   const tabs = [
-    { id: "global", label: "GLOBAL", color: undefined as string | undefined },
-    { id: "feed", label: "FEED", color: undefined as string | undefined },
+    { id: "global", label: "GLOBAL", color: undefined as string | undefined, ai: false },
+    { id: "feed", label: "FEED", color: undefined as string | undefined, ai: false },
     ...state.players.map((p) => ({
       id: `p${p.idx}`,
       label: p.idx === mySeat ? "YOUR FARM" : p.name.toUpperCase(),
       color: p.color as string | undefined,
+      // Seat is on autopilot — any non-human brain (scripted or an LLM model).
+      ai: status.controllers[p.idx] !== "human" && status.controllers[p.idx] !== "remote",
     })),
   ];
   const stageNow = stageOf(state.round);
@@ -235,8 +267,12 @@ function GameApp() {
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
                 }}
               >
+                {t.ai && <RobotIcon />}
                 {t.label}
               </button>
             );
@@ -344,11 +380,24 @@ function GameApp() {
           autoOn={autoOn}
           thinking={thinking}
           guidance={mySeat !== null ? status.guidance[mySeat] ?? "" : ""}
-          model={mySeat !== null ? status.models?.[mySeat] ?? DEFAULT_BEDROCK_MODEL : DEFAULT_BEDROCK_MODEL}
+          brain={
+            mySeat !== null && status.controllers[mySeat] === "scripted"
+              ? "scripted"
+              : mySeat !== null
+                ? status.models?.[mySeat] ?? DEFAULT_BEDROCK_MODEL
+                : DEFAULT_BEDROCK_MODEL
+          }
           prompts={prompts.filter((p) => p.playerIdx === Number(view.slice(1)))}
           onToggleAuto={() => mySeat !== null && socket.setController(mySeat, autoOn ? "human" : "llm")}
           onGuidance={(text) => mySeat !== null && socket.setGuidance(mySeat, text)}
-          onSetModel={(m) => mySeat !== null && socket.setModel(mySeat, m)}
+          onSetBrain={(b) => {
+            if (mySeat === null) return;
+            if (b === "scripted") socket.setController(mySeat, "scripted");
+            else {
+              socket.setController(mySeat, "llm");
+              socket.setModel(mySeat, b);
+            }
+          }}
         />
       )}
 
@@ -419,9 +468,11 @@ function GameApp() {
         (() => {
           const idx = seatMenu.seat;
           const name = state.players[idx]?.name ?? `Seat ${idx}`;
-          const controlling = mySeat === idx;
+          const mode = mySeat === idx ? (status.controllers[idx] === "human" ? "control" : "autopilot") : "observe";
           const itemStyle: CSSProperties = {
-            display: "block",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
             width: "100%",
             textAlign: "left",
             background: "transparent",
@@ -434,6 +485,9 @@ function GameApp() {
             cursor: "pointer",
             whiteSpace: "nowrap",
           };
+          const dot = (active: boolean) => (
+            <span style={{ width: 9, flex: "none", color: C.ember }}>{active ? "●" : ""}</span>
+          );
           return (
             <>
               <div
@@ -462,15 +516,15 @@ function GameApp() {
                 <div style={{ padding: "6px 13px 7px", fontFamily: mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, borderBottom: `1px solid ${C.borderSoft}` }}>
                   {name}
                 </div>
-                {controlling ? (
-                  <button style={itemStyle} onClick={() => { observeSeat(idx); setSeatMenu(null); }}>
-                    Observe — release to AI
-                  </button>
-                ) : (
-                  <button style={itemStyle} onClick={() => { takeControl(idx); setSeatMenu(null); }}>
-                    Control this seat
-                  </button>
-                )}
+                <button style={itemStyle} onClick={() => { observeSeat(idx); setSeatMenu(null); }}>
+                  {dot(mode === "observe")} Observe
+                </button>
+                <button style={itemStyle} onClick={() => { takeControl(idx); setSeatMenu(null); }}>
+                  {dot(mode === "control")} Control
+                </button>
+                <button style={itemStyle} onClick={() => { autopilotSeat(idx); setSeatMenu(null); }}>
+                  {dot(mode === "autopilot")} Autopilot
+                </button>
               </div>
             </>
           );

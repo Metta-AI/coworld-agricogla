@@ -199,11 +199,11 @@ export interface PlayerViewProps {
   autoOn: boolean;
   thinking: boolean;
   guidance: string;
-  model: string;
+  brain: string;
   prompts: ActPromptWire[];
   onToggleAuto: () => void;
   onGuidance: (text: string) => void;
-  onSetModel: (model: string) => void;
+  onSetBrain: (brain: string) => void;
 }
 export function PlayerView(props: PlayerViewProps) {
   const { viewState, liveState, viewSeat, mySeat, finished, reviewing, options, messages, onPick, onSend } = props;
@@ -310,10 +310,10 @@ export function PlayerView(props: PlayerViewProps) {
             yourTurn={yourTurn}
             finished={finished}
             guidance={props.guidance}
-            model={props.model}
+            brain={props.brain}
             onToggle={props.onToggleAuto}
             onGuidance={props.onGuidance}
-            onSetModel={props.onSetModel}
+            onSetBrain={props.onSetBrain}
             prompts={props.prompts}
           />
         )}
