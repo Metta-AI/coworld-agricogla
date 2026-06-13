@@ -106,6 +106,8 @@ const FEEDING_TOOL: Tool = {
 export interface LlmAgentOpts {
   client?: ToolUseClient;
   maxAttempts?: number;
+  /** Bedrock model id; overrides the env/default in BedrockToolUseClient. */
+  model?: string;
   onActPrompt?: (entry: ActPromptEntry) => void;
 }
 
@@ -133,7 +135,7 @@ function withoutThoughts(input: unknown): unknown {
 }
 
 export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
-  const client = opts.client ?? new BedrockToolUseClient();
+  const client = opts.client ?? new BedrockToolUseClient({ model: opts.model });
   const maxAttempts = opts.maxAttempts ?? 3;
 
   async function decide<T>(

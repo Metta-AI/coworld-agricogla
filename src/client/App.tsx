@@ -3,6 +3,7 @@ import { computeAutoFeed } from "../shared/engine/apply";
 import { legalActions, playerChoices } from "../shared/engine/legal";
 import { Placement } from "../shared/engine/placements";
 import { GameState } from "../shared/engine/types";
+import { DEFAULT_BEDROCK_MODEL } from "../shared/protocol";
 import { FeedDialog, PlacementDialog } from "./Dialogs";
 import { GameSocket } from "./net";
 import { ReplayApp } from "./Replay";
@@ -54,6 +55,8 @@ function GameApp() {
   const [dialogSpace, setDialogSpace] = useState<string | null>(null);
   const [histIndex, setHistIndex] = useState<number | null>(null);
   const [frames, setFrames] = useState<Frame[]>([]);
+  // Final-scoring modal can be dismissed to explore the timeline, then reopened.
+  const [scoreClosed, setScoreClosed] = useState(false);
 
   const { state, status, prompts, chat, lastError, connected } = socket.feed;
 
@@ -143,14 +146,18 @@ function GameApp() {
   const curName = state.players[state.currentPlayer]?.name ?? "—";
 
   const turnChip = (() => {
-    if (finished) return { text: "FINAL SCORES", bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
+    if (finished) return { text: scoreClosed ? "▦ FINAL SCORES" : "FINAL SCORES", bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
     if (reviewing)
       return { text: `◀ REVIEWING R${displayRound} · back to live`, bg: "rgba(90,215,255,0.12)", color: C.cyan, border: "#3a6b80", pulse: false };
     if (myTurn) return { text: "● YOUR TURN — place a worker", bg: C.ember, color: C.emberInk, border: C.ember, pulse: true };
     if (state.phase === "feeding") return { text: "HARVEST — feeding", bg: "transparent", color: C.ember, border: "#6a5524", pulse: false };
     return { text: `placing: ${curName}`, bg: "transparent", color: C.inkDim, border: C.border, pulse: false };
   })();
-  const onTurnChip = () => (reviewing ? setHistIndex(null) : setView(myTurn && mySeat !== null ? `p${mySeat}` : "global"));
+  const onTurnChip = () => {
+    if (finished) return setScoreClosed((c) => !c);
+    if (reviewing) return setHistIndex(null);
+    setView(myTurn && mySeat !== null ? `p${mySeat}` : "global");
+  };
 
   const appStyle: CSSProperties = {
     position: "fixed",
@@ -303,9 +310,11 @@ function GameApp() {
           autoOn={autoOn}
           thinking={thinking}
           guidance={mySeat !== null ? status.guidance[mySeat] ?? "" : ""}
+          model={mySeat !== null ? status.models?.[mySeat] ?? DEFAULT_BEDROCK_MODEL : DEFAULT_BEDROCK_MODEL}
           prompts={prompts.filter((p) => p.playerIdx === Number(view.slice(1)))}
           onToggleAuto={() => mySeat !== null && socket.setController(mySeat, autoOn ? "human" : "llm")}
           onGuidance={(text) => mySeat !== null && socket.setGuidance(mySeat, text)}
+          onSetModel={(m) => mySeat !== null && socket.setModel(mySeat, m)}
         />
       )}
 
@@ -333,7 +342,7 @@ function GameApp() {
             <button onClick={() => (status.paused ? socket.resume() : socket.pause())} style={footBtn}>
               {status.paused ? "▶ resume" : "⏸ pause"}
             </button>
-            <button onClick={() => socket.reset()} title="new game, next seed" style={footBtn}>
+            <button onClick={() => { setScoreClosed(false); socket.reset(); }} title="new game, next seed" style={footBtn}>
               ↻ new game
             </button>
           </>
@@ -360,7 +369,16 @@ function GameApp() {
           onAuto={() => socket.feedDecision(computeAutoFeed(state, mySeat!))}
         />
       )}
-      {finished && <ScoreBoard state={state} onNewGame={() => socket.reset()} />}
+      {finished && !scoreClosed && (
+        <ScoreBoard
+          state={state}
+          onNewGame={() => {
+            setScoreClosed(false);
+            socket.reset();
+          }}
+          onClose={() => setScoreClosed(true)}
+        />
+      )}
     </div>
   );
 }

@@ -112,6 +112,10 @@ export class GameSocket {
     this.#send({ type: "setGuidance", playerIdx, text });
   }
 
+  setModel(playerIdx: number, model: string): void {
+    this.#send({ type: "setModel", playerIdx, model });
+  }
+
   sendChat(to: number | null, text: string): void {
     if (this.#playerIdx === null) return; // spectators watch, they don't talk
     const trimmed = text.trim();

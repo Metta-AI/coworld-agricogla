@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { foodNeeded } from "../../shared/engine/apply";
 import { cardById } from "../../shared/engine/cards";
 import { computePastures } from "../../shared/engine/farmyard";
@@ -13,12 +14,69 @@ import { Farm } from "../Farm";
 import { MiniFarm } from "./miniFarm";
 import { C, F, panel, RES_COLOR, sectionHeading } from "./theme";
 
-function Section({ title, children, style }: { title: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function Section({ title, children, style, onCollapse }: { title: string; children: React.ReactNode; style?: React.CSSProperties; onCollapse?: () => void }) {
   return (
     <div style={{ minHeight: 0, display: "flex", flexDirection: "column", ...panel, padding: "12px 14px", ...style }}>
-      <h2 style={sectionHeading}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 10px" }}>
+        <h2 style={{ ...sectionHeading, margin: 0, flex: 1 }}>{title}</h2>
+        {onCollapse && <RailChevron dir="left" onClick={onCollapse} label="collapse panel" />}
+      </div>
       {children}
     </div>
+  );
+}
+
+/** Small chevron button used to collapse a side rail. */
+function RailChevron({ dir, onClick, label }: { dir: "left" | "right"; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        flex: "none",
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        background: C.field,
+        border: `1px solid ${C.border}`,
+        color: C.muted,
+        cursor: "pointer",
+        fontSize: 13,
+        lineHeight: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {dir === "left" ? "‹" : "›"}
+    </button>
+  );
+}
+
+/** Slim strip shown in place of a collapsed side rail; click anywhere to reopen. */
+function CollapsedRail({ label, side, onExpand }: { label: string; side: "left" | "right"; onExpand: () => void }) {
+  return (
+    <button
+      onClick={onExpand}
+      aria-label={`expand ${label}`}
+      title={`expand ${label}`}
+      style={{
+        ...panel,
+        padding: "10px 0",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 10,
+        color: C.muted,
+      }}
+    >
+      <span style={{ fontSize: 14 }}>{side === "left" ? "›" : "‹"}</span>
+      <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontFamily: F.mono, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -141,12 +199,17 @@ export interface PlayerViewProps {
   autoOn: boolean;
   thinking: boolean;
   guidance: string;
+  model: string;
   prompts: ActPromptWire[];
   onToggleAuto: () => void;
   onGuidance: (text: string) => void;
+  onSetModel: (model: string) => void;
 }
 export function PlayerView(props: PlayerViewProps) {
   const { viewState, liveState, viewSeat, mySeat, finished, reviewing, options, messages, onPick, onSend } = props;
+  const [inboxOpen, setInboxOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const vp = viewState.players[viewSeat]!;
   const isMine = viewSeat === mySeat;
   const yourTurn = !reviewing && liveState.phase === "work" && liveState.currentPlayer === mySeat && !finished;
@@ -164,10 +227,14 @@ export function PlayerView(props: PlayerViewProps) {
     : "Action board";
 
   return (
-    <main style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "350px minmax(0, 1fr) 330px", gap: 12 }}>
-      <Section title={boardTitle} style={{ overflowY: "auto" }}>
-        <ActionSpaces state={viewState} options={isMine ? options : null} clickable={myLiveTurn} onPick={onPick} />
-      </Section>
+    <main style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftOpen ? "350px" : "34px"} minmax(0, 1fr) ${rightOpen ? "330px" : "34px"}`, gap: 12 }}>
+      {leftOpen ? (
+        <Section title={boardTitle} style={{ overflowY: "auto" }} onCollapse={() => setLeftOpen(false)}>
+          <ActionSpaces state={viewState} options={isMine ? options : null} clickable={myLiveTurn} onPick={onPick} />
+        </Section>
+      ) : (
+        <CollapsedRail label="Action board" side="left" onExpand={() => setLeftOpen(true)} />
+      )}
 
       <section style={{ minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", ...panel, border: `1px solid ${vp.color}55` }}>
@@ -231,7 +298,11 @@ export function PlayerView(props: PlayerViewProps) {
         )}
       </section>
 
-      <section style={{ minHeight: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+      {rightOpen ? (
+        <section style={{ minHeight: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <RailChevron dir="right" onClick={() => setRightOpen(false)} label="collapse side panel" />
+          </div>
         {isMine && (
           <Autopilot
             on={props.autoOn}
@@ -239,22 +310,58 @@ export function PlayerView(props: PlayerViewProps) {
             yourTurn={yourTurn}
             finished={finished}
             guidance={props.guidance}
+            model={props.model}
             onToggle={props.onToggleAuto}
             onGuidance={props.onGuidance}
+            onSetModel={props.onSetModel}
             prompts={props.prompts}
           />
         )}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", ...panel, padding: "12px 14px" }}>
-          <h2 style={sectionHeading}>{isMine ? "Inbox — public + your DMs" : `Inbox — ${vp.name}'s private view`}</h2>
-          <MessageList messages={messages.slice(-50)} players={viewState.players} mySeat={mySeat} empty="No messages yet — the table is quiet." />
-          {isMine && mySeat !== null && <Composer players={liveState.players} from={mySeat} onSend={onSend} />}
-          {!isMine && (
-            <div style={{ fontSize: 11, color: C.faint, paddingTop: 8 }}>
-              Observer mode — {vp.name}'s private console. Only they could act here.
-            </div>
+        <div
+          style={{
+            ...panel,
+            padding: "12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            ...(inboxOpen ? { flex: 1, minHeight: 0 } : { flex: "none" }),
+          }}
+        >
+          <button
+            onClick={() => setInboxOpen((o) => !o)}
+            aria-expanded={inboxOpen}
+            style={{
+              ...sectionHeading,
+              margin: inboxOpen ? "0 0 10px" : 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              width: "100%",
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: 9, transition: "transform .15s", transform: inboxOpen ? "none" : "rotate(-90deg)" }}>▾</span>
+            {isMine ? "Inbox — public + your DMs" : `Inbox — ${vp.name}'s private view`}
+          </button>
+          {inboxOpen && (
+            <>
+              <MessageList messages={messages.slice(-50)} players={viewState.players} mySeat={mySeat} empty="No messages yet — the table is quiet." />
+              {isMine && mySeat !== null && <Composer players={liveState.players} from={mySeat} onSend={onSend} />}
+              {!isMine && (
+                <div style={{ fontSize: 11, color: C.faint, paddingTop: 8 }}>
+                  Observer mode — {vp.name}'s private console. Only they could act here.
+                </div>
+              )}
+            </>
           )}
         </div>
-      </section>
+        </section>
+      ) : (
+        <CollapsedRail label="Autopilot + Inbox" side="right" onExpand={() => setRightOpen(true)} />
+      )}
     </main>
   );
 }
