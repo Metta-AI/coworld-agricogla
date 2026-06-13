@@ -9,7 +9,7 @@ import {
   roomCost,
 } from "./apply";
 import { bestCookRate, playedCards } from "./effects";
-import { computePastures, edgesOfCell, validateFencePlan } from "./farmyard";
+import { cellsOfEdge, computePastures, edgesOfCell, validateFencePlan } from "./farmyard";
 import { COLS, GameState, Goods, PlayerState, ROWS, Resource, spaceIndex } from "./types";
 
 export interface ActionOption {
@@ -35,6 +35,8 @@ export interface CardOption {
 
 export interface FencePlan {
   edges: string[];
+  /** Wood actually paid for this plan: fence count minus the player's free-fence
+   *  discount (Fence Posts, Hedge Warden). */
   cost: number;
   cells: number[];
 }
@@ -102,11 +104,20 @@ function cardOption(state: GameState, player: PlayerState, id: string): CardOpti
   };
 }
 
-/** Candidate rectangular pastures (plus single-cell plans) for agents. The UI
- *  lets humans draw arbitrary fence sets; these are suggestions, not limits. */
+/** Candidate fence plans for agents: new rectangular pastures over empty cells,
+ *  plus single-fence subdivisions of existing pastures. `cost` is the WOOD a
+ *  player actually pays — the raw fence count minus their free-fence discount
+ *  (Fence Posts, Hedge Warden). The UI lets humans draw arbitrary fence sets;
+ *  these are suggestions, not limits. */
 export function suggestFencePlans(player: PlayerState): FencePlan[] {
   const layout = computePastures(player.spaces, player.fences);
+  const existing = new Set(player.fences);
+  let freeFences = 0;
+  for (const card of playedCards(player)) freeFences += card.freeFences ?? 0;
+  const woodCost = (fences: number) => Math.max(0, fences - freeFences);
   const plans: FencePlan[] = [];
+
+  // New rectangular pastures over blocks of empty, unpastured cells.
   for (let r1 = 0; r1 < ROWS; r1++) {
     for (let r2 = r1; r2 < ROWS; r2++) {
       for (let c1 = 0; c1 < COLS; c1++) {
@@ -122,7 +133,6 @@ export function suggestFencePlans(player: PlayerState): FencePlan[] {
             }
           }
           if (!ok || cells.length === 0 || cells.length > 6) continue;
-          const existing = new Set(player.fences);
           const edgeCount = new Map<string, number>();
           for (const cell of cells) {
             for (const e of edgesOfCell(cell)) {
@@ -136,11 +146,31 @@ export function suggestFencePlans(player: PlayerState): FencePlan[] {
           if (edges.length === 0) continue;
           const result = validateFencePlan(player, edges);
           if (!result.ok) continue;
-          plans.push({ edges, cost: edges.length, cells });
+          plans.push({ edges, cost: woodCost(edges.length), cells });
         }
       }
     }
   }
+
+  // Subdivisions: a single interior fence that splits an existing multi-cell
+  // pasture into two. Agents would otherwise never find these.
+  for (const pasture of layout.pastures) {
+    if (pasture.cells.length < 2) continue;
+    const cellSet = new Set(pasture.cells);
+    const interior = new Set<string>();
+    for (const cell of pasture.cells) {
+      for (const e of edgesOfCell(cell)) {
+        if (existing.has(e)) continue;
+        const [a, b] = cellsOfEdge(e);
+        if (a !== null && b !== null && cellSet.has(a) && cellSet.has(b)) interior.add(e);
+      }
+    }
+    for (const e of interior) {
+      if (!validateFencePlan(player, [e]).ok) continue;
+      plans.push({ edges: [e], cost: woodCost(1), cells: pasture.cells });
+    }
+  }
+
   plans.sort((a, b) => a.cost - b.cost || b.cells.length - a.cells.length);
   return plans.slice(0, 24);
 }
