@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActPromptWire } from "../../shared/protocol";
+import { ActPromptWire, BEDROCK_MODELS } from "../../shared/protocol";
 import { C, F } from "./theme";
 
 export interface AutopilotProps {
@@ -8,8 +8,10 @@ export interface AutopilotProps {
   yourTurn: boolean;
   finished: boolean;
   guidance: string;
+  model: string;
   onToggle: () => void;
   onGuidance: (text: string) => void;
+  onSetModel: (model: string) => void;
   /** Act-prompt transcripts for this seat, newest last. */
   prompts: ActPromptWire[];
 }
@@ -20,8 +22,10 @@ export function Autopilot({
   yourTurn,
   finished,
   guidance,
+  model,
   onToggle,
   onGuidance,
+  onSetModel,
   prompts,
 }: AutopilotProps) {
   const [draft, setDraft] = useState(guidance);
@@ -80,9 +84,29 @@ export function Autopilot({
         <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 16, letterSpacing: "0.06em", textTransform: "uppercase", color: C.ink }}>
           Autopilot
         </span>
-        <span style={{ fontFamily: F.mono, fontSize: 8.5, letterSpacing: "0.07em", color: C.muted, border: `1px solid ${C.border}`, borderRadius: 999, padding: "2px 7px" }}>
-          opus 4.8
-        </span>
+        <select
+          value={model}
+          onChange={(e) => onSetModel(e.target.value)}
+          aria-label="autopilot model"
+          title="Bedrock model that drives this seat"
+          style={{
+            fontFamily: F.mono,
+            fontSize: 9.5,
+            letterSpacing: "0.04em",
+            color: C.inkSoft,
+            background: C.field,
+            border: `1px solid ${C.border}`,
+            borderRadius: 999,
+            padding: "2px 7px",
+            cursor: "pointer",
+          }}
+        >
+          {BEDROCK_MODELS.map((m) => (
+            <option key={m.id} value={m.id} style={{ fontFamily: F.mono, background: C.field, color: C.ink }}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <span style={{ flex: 1 }} />
         <button
           onClick={onToggle}

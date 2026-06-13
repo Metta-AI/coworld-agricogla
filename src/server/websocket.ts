@@ -189,6 +189,10 @@ export class SocketHub {
           this.#requireSeat(client, message.playerIdx);
           this.#runner.setGuidance(message.playerIdx, message.text);
           break;
+        case "setModel":
+          this.#requireSeat(client, message.playerIdx);
+          this.#runner.setModel(message.playerIdx, message.model);
+          break;
         case "chat":
           this.#requireSeat(client, message.from);
           this.#runner.postChat(message.from, message.to, message.text);
