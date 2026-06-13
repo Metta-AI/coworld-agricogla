@@ -17,6 +17,15 @@
       "port": 4173
     },
     {
+      "name": "agricola-coworld-live",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "COGAME_HOST=127.0.0.1 COGAME_PORT=8587 COGAME_CONFIG_URI=file:///tmp/agricola-coworld/config-live.json COGAME_RESULTS_URI=file:///tmp/agricola-coworld/results-live.json COGAME_SAVE_REPLAY_URI=file:///tmp/agricola-coworld/replay-live exec npx tsx src/server/coworld-main.ts"
+      ],
+      "port": 8587
+    },
+    {
       "name": "agricola-replay",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
