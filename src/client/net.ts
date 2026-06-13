@@ -108,6 +108,12 @@ export class GameSocket {
     return this.#playerIdx;
   }
 
+  /** Re-claim a seat (or null to spectate) live, without reloading the page. */
+  claimSeat(playerIdx: number | null): void {
+    this.#playerIdx = playerIdx;
+    this.#send({ type: "hello", playerIdx, token: this.#token });
+  }
+
   setGuidance(playerIdx: number, text: string): void {
     this.#send({ type: "setGuidance", playerIdx, text });
   }
