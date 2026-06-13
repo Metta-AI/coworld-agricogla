@@ -13,9 +13,11 @@ import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F, nextHarvest, STAGE_CHIPS, stageOf } from "./agricogla/theme";
 
 function routeSeat(): { playerIdx: number | null; token?: string } {
-  const match = /^\/player\/(\d+)/.exec(location.pathname);
+  // Match by path suffix: behind the Observatory hosted proxy the pathname is
+  // prefixed (.../sessions/<id>/proxy/client/player), so exact matches fail.
+  const match = /\/player\/(\d+)\/?$/.exec(location.pathname);
   if (match) return { playerIdx: Number(match[1]) };
-  if (location.pathname === "/client/player") {
+  if (location.pathname.endsWith("/client/player")) {
     const params = new URLSearchParams(location.search);
     const slot = Number(params.get("slot"));
     if (Number.isInteger(slot) && slot >= 0) {
@@ -26,7 +28,7 @@ function routeSeat(): { playerIdx: number | null; token?: string } {
 }
 
 export function App() {
-  if (location.pathname === "/client/replay") return <ReplayApp />;
+  if (location.pathname.endsWith("/client/replay")) return <ReplayApp />;
   return <GameApp />;
 }
 

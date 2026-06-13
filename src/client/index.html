@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agricogla</title>
+    <script>
+      // Point <base> at the path prefix we're actually served under, so the
+      // relative bundle (./assets/*), art (art/*) and the /replay WebSocket
+      // resolve in both contexts: served at the root locally, and behind the
+      // Observatory hosted-replay proxy at <prefix>/proxy/client/replay. Must
+      // run before the parser reaches any relative asset tag below.
+      (function () {
+        var path = window.location.pathname;
+        var marker = "/proxy/";
+        var idx = path.indexOf(marker);
+        var base = idx >= 0 ? path.slice(0, idx + marker.length) : "/";
+        var el = document.createElement("base");
+        el.setAttribute("href", base);
+        document.head.appendChild(el);
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
