@@ -3,6 +3,30 @@ import { ActionOption } from "../../shared/engine/legal";
 import { GameState, Goods, Good } from "../../shared/engine/types";
 import { C, F, RES_COLOR } from "./theme";
 
+/** Maps each action space to a HUD icon — resource spaces reuse the good
+ *  tokens, the rest get a dedicated ember action glyph. */
+const SPACE_ICON: Record<string, string> = {
+  forest: "token-wood", grove: "token-wood", copse: "token-wood",
+  clay_pit: "token-clay", hollow: "token-clay",
+  reed_bank: "token-reed",
+  quarry_stall: "token-stone", r_west_quarry: "token-stone", r_east_quarry: "token-stone",
+  grain_seeds: "token-grain",
+  r_vegetable: "token-vegetable",
+  day_laborer: "token-food", traveling_players: "token-food",
+  r_sheep: "token-sheep", r_boar: "token-boar", r_cattle: "token-cattle",
+  farm_expansion: "act-build",
+  farmland: "act-plow",
+  fishing: "act-fish",
+  lessons: "act-occupation", lessons_b: "act-occupation",
+  meeting_place: "act-startplayer",
+  resource_market: "act-market",
+  r_improvement: "act-improve",
+  r_fences: "act-fence",
+  r_sow_bake: "act-sow", r_cultivation: "act-sow",
+  r_renovate_improve: "act-renovate", r_redevelop: "act-renovate",
+  r_family_growth: "act-family", r_urgent_family: "act-family",
+};
+
 function goodsLabel(pile: Goods): { text: string; color: string } {
   const entries = Object.entries(pile).filter(([, n]) => (n ?? 0) > 0) as [Good, number][];
   if (entries.length === 0) return { text: "", color: C.muted };
@@ -60,6 +84,13 @@ export function ActionSpaces({ state, options, clickable, onPick }: ActionSpaces
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
+                {SPACE_ICON[space.id] && (
+                  <img
+                    src={`art/${SPACE_ICON[space.id]}.png`}
+                    alt=""
+                    style={{ height: 19, width: 19, objectFit: "contain", flex: "none", opacity: taken ? 0.6 : 1 }}
+                  />
+                )}
                 <span
                   style={{
                     fontFamily: F.mono,

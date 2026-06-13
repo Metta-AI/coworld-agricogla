@@ -171,10 +171,11 @@ export function FeedView({ state, messages, mySeat, onSend }: FeedViewProps) {
 }
 
 // ============ PLAYER ============
-function ResChip({ label, val, color }: { label: string; val: number; color: string }) {
+function ResChip({ label, val, color, good }: { label: string; val: number; color: string; good?: string }) {
   return (
-    <span style={{ display: "inline-flex", gap: 5, alignItems: "baseline", fontSize: 11, padding: "4px 10px", borderRadius: 999, background: C.field, border: `1px solid ${C.border}`, color }}>
-      {label} <b style={{ fontFamily: F.mono }}>{val}</b>
+    <span title={label} style={{ display: "inline-flex", gap: 5, alignItems: "center", fontSize: 11, padding: "4px 10px", borderRadius: 999, background: C.field, border: `1px solid ${C.border}`, color }}>
+      {good ? <img src={`art/token-${good}.png`} alt="" style={{ height: 17, width: 17, objectFit: "contain" }} /> : label}
+      <b style={{ fontFamily: F.mono }}>{val}</b>
     </span>
   );
 }
@@ -255,19 +256,19 @@ export function PlayerView(props: PlayerViewProps) {
 
         <div style={{ ...panel, padding: "11px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-            <ResChip label="wood" val={vp.resources.wood} color={RES_COLOR.wood} />
-            <ResChip label="clay" val={vp.resources.clay} color={RES_COLOR.clay} />
-            <ResChip label="reed" val={vp.resources.reed} color={RES_COLOR.reed} />
-            <ResChip label="stone" val={vp.resources.stone} color={RES_COLOR.stone} />
-            <ResChip label="grain" val={vp.resources.grain} color={RES_COLOR.grain} />
-            <ResChip label="veg" val={vp.resources.vegetable} color={RES_COLOR.vegetable} />
-            <ResChip label="food" val={vp.resources.food} color={RES_COLOR.food} />
+            <ResChip label="wood" good="wood" val={vp.resources.wood} color={RES_COLOR.wood} />
+            <ResChip label="clay" good="clay" val={vp.resources.clay} color={RES_COLOR.clay} />
+            <ResChip label="reed" good="reed" val={vp.resources.reed} color={RES_COLOR.reed} />
+            <ResChip label="stone" good="stone" val={vp.resources.stone} color={RES_COLOR.stone} />
+            <ResChip label="grain" good="grain" val={vp.resources.grain} color={RES_COLOR.grain} />
+            <ResChip label="vegetable" good="vegetable" val={vp.resources.vegetable} color={RES_COLOR.vegetable} />
+            <ResChip label="food" good="food" val={vp.resources.food} color={RES_COLOR.food} />
             {vp.beggingCards > 0 && <ResChip label="begging" val={vp.beggingCards} color={C.beg} />}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
-            <ResChip label="sheep" val={vp.animals.sheep} color={RES_COLOR.sheep} />
-            <ResChip label="boar" val={vp.animals.boar} color={RES_COLOR.boar} />
-            <ResChip label="cattle" val={vp.animals.cattle} color={RES_COLOR.cattle} />
+            <ResChip label="sheep" good="sheep" val={vp.animals.sheep} color={RES_COLOR.sheep} />
+            <ResChip label="boar" good="boar" val={vp.animals.boar} color={RES_COLOR.boar} />
+            <ResChip label="cattle" good="cattle" val={vp.animals.cattle} color={RES_COLOR.cattle} />
             <span style={{ fontFamily: F.mono, fontSize: 10, color: C.muted }}>capacity {animalsTotal}/{capacityOf(vp)}</span>
             <span style={{ flex: 1 }} />
             <span style={{ fontFamily: F.mono, fontSize: 10, color: C.cyan }}>feeding due at harvest: {foodNeeded(viewState, vp)} food</span>

@@ -1,42 +1,76 @@
 import { computePastures } from "../../shared/engine/farmyard";
 import { scorePlayer } from "../../shared/engine/scoring";
-import { GameState, PlayerState } from "../../shared/engine/types";
+import { GameState, Good, PlayerState } from "../../shared/engine/types";
+import { GOOD_LABELS } from "../icons";
 import { C, F, RES_COLOR } from "./theme";
 
-const ROOM_BG: Record<string, string> = { wood: "#7c5530", clay: "#a25533", stone: "#667085" };
+const ROOM_TILE: Record<string, string> = {
+  wood: "art/tile-room-wood.png",
+  clay: "art/tile-room-clay.png",
+  stone: "art/tile-room-stone.png",
+};
 
 interface Tile {
-  glyph: string;
-  bg: string;
-  dashed: boolean;
+  src: string;
+  pasture: boolean;
+  stable: boolean;
 }
 
+/** Same tile textures as the full Farm board, just rendered small. */
 function tilesFor(player: PlayerState): Tile[] {
   const { pastureCells } = computePastures(player.spaces, player.fences);
   return player.spaces.map((sp, i) => {
-    if (sp.kind === "room") return { glyph: "R", bg: ROOM_BG[player.houseMaterial]!, dashed: false };
-    if (sp.kind === "field") return { glyph: "F", bg: "#6b4f28", dashed: false };
-    if (pastureCells.has(i)) return { glyph: "P", bg: "#1f4a2c", dashed: true };
-    if (sp.stable) return { glyph: "S", bg: "#4a3d27", dashed: false };
-    return { glyph: "", bg: "#12170f", dashed: false };
+    if (sp.kind === "room") return { src: ROOM_TILE[player.houseMaterial]!, pasture: false, stable: false };
+    if (sp.kind === "field") return { src: "art/tile-field.png", pasture: false, stable: false };
+    return { src: "art/tile-grass.png", pasture: pastureCells.has(i), stable: !!sp.stable };
   });
 }
 
-function Chip({ label, val, color }: { label: string; val: number; color: string }) {
+function Chip({ good, val, color }: { good: Good; val: number; color: string }) {
   return (
     <span
+      title={GOOD_LABELS[good]}
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
         fontFamily: F.mono,
         fontSize: 9.5,
         fontWeight: 600,
-        padding: "2px 7px",
+        padding: "2px 6px",
         borderRadius: 999,
         background: C.field,
         border: `1px solid ${C.border}`,
         color,
       }}
     >
-      {label} {val}
+      <img src={`art/token-${good}.png`} alt="" style={{ height: 13, width: 13, objectFit: "contain" }} />
+      {val}
+    </span>
+  );
+}
+
+/** Icon + label pill for non-good stats (family, house, begging). */
+function Stat({ src, label, title }: { src?: string; label: string; title: string }) {
+  return (
+    <span
+      title={title}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 3,
+        fontFamily: F.mono,
+        fontSize: 9.5,
+        fontWeight: 600,
+        padding: "2px 6px",
+        borderRadius: 999,
+        background: C.field,
+        border: `1px solid ${C.border}`,
+        color: C.inkDim,
+      }}
+    >
+      {src && <img src={src} alt="" style={{ height: 13, width: 13, objectFit: "contain" }} />}
+      {label}
     </span>
   );
 }
@@ -77,34 +111,43 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
           <span
             key={i}
             style={{
+              position: "relative",
               aspectRatio: "1",
               borderRadius: 3,
-              background: t.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: t.dashed ? "1px dashed #3f7d52" : "1px solid rgba(255,255,255,0.07)",
-              fontFamily: F.mono,
-              fontSize: 8,
-              color: "rgba(255,255,255,0.55)",
-              fontWeight: 700,
+              backgroundImage: `url(${t.src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              border: t.pasture ? "1px dashed #3f7d52" : "1px solid rgba(255,255,255,0.07)",
+              overflow: "hidden",
             }}
           >
-            {t.glyph}
+            {t.pasture && <span style={{ position: "absolute", inset: 0, background: "rgba(63,125,82,0.22)" }} />}
+            {t.stable && (
+              <img
+                src="art/token-stable.png"
+                alt=""
+                style={{ position: "absolute", inset: "14%", width: "72%", height: "72%", objectFit: "contain" }}
+              />
+            )}
           </span>
         ))}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        <Chip label="WD" val={player.resources.wood} color={RES_COLOR.wood} />
-        <Chip label="CL" val={player.resources.clay} color={RES_COLOR.clay} />
-        <Chip label="RD" val={player.resources.reed} color={RES_COLOR.reed} />
-        <Chip label="ST" val={player.resources.stone} color={RES_COLOR.stone} />
-        <Chip label="GR" val={player.resources.grain} color={RES_COLOR.grain} />
-        <Chip label="VG" val={player.resources.vegetable} color={RES_COLOR.vegetable} />
-        <Chip label="FOOD" val={player.resources.food} color={RES_COLOR.food} />
+        <Chip good="wood" val={player.resources.wood} color={RES_COLOR.wood} />
+        <Chip good="clay" val={player.resources.clay} color={RES_COLOR.clay} />
+        <Chip good="reed" val={player.resources.reed} color={RES_COLOR.reed} />
+        <Chip good="stone" val={player.resources.stone} color={RES_COLOR.stone} />
+        <Chip good="grain" val={player.resources.grain} color={RES_COLOR.grain} />
+        <Chip good="vegetable" val={player.resources.vegetable} color={RES_COLOR.vegetable} />
+        <Chip good="food" val={player.resources.food} color={RES_COLOR.food} />
       </div>
-      <div style={{ fontFamily: F.mono, fontSize: 9.5, color: C.muted, letterSpacing: "0.04em" }}>
-        {`fam ${player.family.length}${newborn ? `+${newborn}` : ""} · ${player.houseMaterial} house · sheep ${player.animals.sheep} · boar ${player.animals.boar} · cattle ${player.animals.cattle}${player.beggingCards ? ` · begging ${player.beggingCards}` : ""}`}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+        <Stat src="art/token-family.png" label={`${player.family.length}${newborn ? `+${newborn}` : ""}`} title="Family members" />
+        <Stat src="art/act-renovate.png" label={player.houseMaterial} title="House material" />
+        <Chip good="sheep" val={player.animals.sheep} color={RES_COLOR.sheep} />
+        <Chip good="boar" val={player.animals.boar} color={RES_COLOR.boar} />
+        <Chip good="cattle" val={player.animals.cattle} color={RES_COLOR.cattle} />
+        {player.beggingCards > 0 && <Stat label={`begging ${player.beggingCards}`} title="Begging cards" />}
       </div>
     </div>
   );
