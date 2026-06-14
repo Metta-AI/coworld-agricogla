@@ -5,7 +5,7 @@ import { computePastures } from "../../shared/engine/farmyard";
 import { scorePlayer } from "../../shared/engine/scoring";
 import { ActionOption } from "../../shared/engine/legal";
 import { GameEvent, GameState, PlayerState } from "../../shared/engine/types";
-import { ActPromptWire, ChatMessage } from "../../shared/protocol";
+import { ActPromptWire, BedrockModel, ChatMessage } from "../../shared/protocol";
 import { ActionSpaces } from "./actionSpaces";
 import { Autopilot } from "./autopilot";
 import { Composer, Message, MessageList } from "./chat";
@@ -201,6 +201,7 @@ export interface PlayerViewProps {
   thinking: boolean;
   guidance: string;
   brain: string;
+  models: BedrockModel[];
   prompts: ActPromptWire[];
   onToggleAuto: () => void;
   onGuidance: (text: string) => void;
@@ -312,6 +313,7 @@ export function PlayerView(props: PlayerViewProps) {
             finished={finished}
             guidance={props.guidance}
             brain={props.brain}
+            models={props.models}
             onToggle={props.onToggleAuto}
             onGuidance={props.onGuidance}
             onSetBrain={props.onSetBrain}

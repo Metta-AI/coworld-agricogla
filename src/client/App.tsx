@@ -386,6 +386,7 @@ function GameApp() {
                 ? status.models?.[mySeat] ?? DEFAULT_BEDROCK_MODEL
                 : DEFAULT_BEDROCK_MODEL
           }
+          models={status.availableModels ?? []}
           prompts={prompts.filter((p) => p.playerIdx === Number(view.slice(1)))}
           onToggleAuto={() => mySeat !== null && socket.setController(mySeat, autoOn ? "human" : "llm")}
           onGuidance={(text) => mySeat !== null && socket.setGuidance(mySeat, text)}
