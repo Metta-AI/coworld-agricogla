@@ -156,7 +156,8 @@ const manifest = {
       name: "Default Commissioner",
       type: "commissioner",
       description: "Game-agnostic round-robin commissioner with mean-score rankings.",
-      source_url: "https://github.com/Metta-AI/commissioners/tree/main/commissioners/default",
+      source_url:
+        "https://github.com/Metta-AI/commissioners/tree/main/commissioners/ruleset_strategy_commissioner",
       image: "{{COMMISSIONER_IMAGE}}",
     },
   ],
