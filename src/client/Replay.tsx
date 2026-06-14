@@ -5,7 +5,7 @@ import { feedDecisionSchema, placementSchema } from "../shared/engine/placements
 import { GameState } from "../shared/engine/types";
 import { ReplayPayload } from "../shared/coworld-protocol";
 import { HandSizes } from "../shared/protocol";
-import { GlobalView } from "./agricogla/views";
+import { FeedView, GlobalView } from "./agricogla/views";
 import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F, nextHarvest } from "./agricogla/theme";
 
@@ -50,11 +50,13 @@ const SPEEDS = [
   { label: "4×", ms: 200 },
 ] as const;
 
-function ReplayViewer({ payload }: { payload: ReplayPayload }) {
+export function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   const states = useMemo(() => buildStates(payload), [payload]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speedMs, setSpeedMs] = useState<number>(800);
+  // The replay opens on the negotiation feed; flip to the full table any time.
+  const [view, setView] = useState<"feed" | "table">("feed");
 
   // Autoplay; when the recorded end is reached, loop back to move 0.
   useEffect(() => {
@@ -66,6 +68,11 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   const atEnd = index === states.length - 1;
   const { state } = useMemo(() => hideHands(states[index]!), [states, index]);
   const nh = nextHarvest(state.round);
+  // Reveal table-talk in step with the scrubber (messages are tagged by round).
+  const visibleChat = useMemo(
+    () => (payload.chat ?? []).filter((m) => m.round <= state.round),
+    [payload.chat, state.round],
+  );
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", gap: 10, padding: "12px 16px 8px", overflow: "hidden", background: "radial-gradient(1200px 700px at 50% -10%, #101622 0%, #07090d 55%)", color: C.ink, fontFamily: F.body, fontSize: 14 }}>
@@ -82,6 +89,18 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
         <span style={{ fontFamily: F.mono, fontSize: 11, padding: "5px 10px", borderRadius: 999, border: "1px solid #233140", color: C.cyan, whiteSpace: "nowrap" }}>
           {state.phase === "finished" ? "GAME OVER" : nh ? `harvest after R${nh}` : ""}
         </span>
+        <div style={{ display: "flex", gap: 6, flex: "none" }}>
+          {(["feed", "table"] as const).map((v) => (
+            <button
+              key={v}
+              className="mini"
+              onClick={() => setView(v)}
+              style={view === v ? { borderColor: C.ember, color: C.ember } : undefined}
+            >
+              {v === "feed" ? "💬 feed" : "▦ table"}
+            </button>
+          ))}
+        </div>
         <span style={{ flex: 1 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "none" }}>
           <span style={{ fontFamily: F.mono, fontSize: 11, color: C.inkDim }}>move {index} / {states.length - 1}</span>
@@ -97,7 +116,11 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
         </div>
       </header>
 
-      <GlobalView state={state} messages={[]} log={state.log} mySeat={null} />
+      {view === "feed" ? (
+        <FeedView state={state} messages={visibleChat} mySeat={null} onSend={() => {}} />
+      ) : (
+        <GlobalView state={state} messages={visibleChat} log={state.log} mySeat={null} />
+      )}
 
       {atEnd && state.phase === "finished" && <ScoreBoard state={state} onNewGame={() => setIndex(0)} />}
     </div>

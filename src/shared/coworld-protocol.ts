@@ -2,7 +2,7 @@ import { z } from "zod";
 import { GameState } from "./engine/types";
 import { ActionOption, PlayerChoices } from "./engine/legal";
 import { feedDecisionSchema, placementSchema } from "./engine/placements";
-import { HandSizes } from "./protocol";
+import { ChatMessage, HandSizes } from "./protocol";
 
 /** Concrete per-episode game config the Coworld runner hands the game
  *  container via COGAME_CONFIG_URI. `tokens` is runner-injected; everything
@@ -45,6 +45,10 @@ export interface ReplayPayload {
   numPlayers: number;
   playerNames: string[];
   actions: ReplayAction[];
+  /** Table-talk recorded during the episode (bot quips + LLM `say`), so the
+   *  replay viewer's feed reproduces the negotiation. Optional: older replays
+   *  predate it and render an empty feed. */
+  chat?: ChatMessage[];
   results: CoworldResults;
 }
 
