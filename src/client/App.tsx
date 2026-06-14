@@ -8,6 +8,7 @@ import { FeedDialog, PlacementDialog } from "./Dialogs";
 import { GameSocket } from "./net";
 import { ReplayApp } from "./Replay";
 import { GlobalView, FeedView, PlayerView } from "./agricogla/views";
+import { Lobby, JoinPage } from "./agricogla/lobby";
 import { Scrubber } from "./agricogla/scrubber";
 import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F, nextHarvest, STAGE_CHIPS, stageOf } from "./agricogla/theme";
@@ -29,6 +30,7 @@ function routeSeat(): { playerIdx: number | null; token?: string } {
 
 export function App() {
   if (location.pathname.endsWith("/client/replay")) return <ReplayApp />;
+  if (location.pathname.endsWith("/join")) return <JoinPage />;
   return <GameApp />;
 }
 
@@ -115,7 +117,19 @@ function GameApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [frames.length, histIndex]);
 
-  if (!state || !status) {
+  if (!status) {
+    return (
+      <div className="loading">
+        <h1>⌂ Agricogla</h1>
+        <p>{connected ? "waiting for the table…" : "connecting…"}</p>
+      </div>
+    );
+  }
+  // Pre-game lobby: collect players (cogs + joins) until someone hits Start.
+  if (!status.started) {
+    return <Lobby status={status} onAddBot={() => socket.addBot()} onStart={() => socket.resume()} />;
+  }
+  if (!state) {
     return (
       <div className="loading">
         <h1>⌂ Agricogla</h1>
@@ -362,7 +376,7 @@ function GameApp() {
 
       {/* ===== view ===== */}
       {view === "global" && <GlobalView state={viewState} messages={visibleChat} log={logItems} mySeat={mySeat} />}
-      {view === "feed" && <FeedView state={viewState} messages={visibleChat} mySeat={mySeat} onSend={sendChat} />}
+      {view === "feed" && <FeedView state={viewState} messages={visibleChat} log={logItems} mySeat={mySeat} onSend={sendChat} />}
       {view.startsWith("p") && (
         <PlayerView
           viewState={viewState}

@@ -89,14 +89,32 @@ function logColor(type: string): string {
 }
 
 function ActivityLog({ log }: { log: GameEvent[] }) {
-  const items = log.slice(-50).reverse();
+  // Group consecutive events by round; newest round on top, chronological within.
+  const groups: { round: number; events: GameEvent[] }[] = [];
+  for (const e of log) {
+    const last = groups[groups.length - 1];
+    if (last && last.round === e.round) last.events.push(e);
+    else groups.push({ round: e.round, events: [e] });
+  }
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
-      {items.map((l, i) => (
-        <div key={i} style={{ fontFamily: F.mono, fontSize: 10.5, lineHeight: 1.5, color: logColor(l.type) }}>
-          R{l.round} · {l.text}
-        </div>
-      ))}
+    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+      {groups
+        .slice()
+        .reverse()
+        .map((g) => (
+          <div key={g.round} style={{ background: C.field, border: `1px solid ${C.borderSoft}`, borderRadius: 8, padding: "7px 10px" }}>
+            <div style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: C.faint, marginBottom: 5 }}>
+              Round {g.round}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {g.events.map((l, i) => (
+                <div key={i} style={{ fontFamily: F.mono, fontSize: 10.5, lineHeight: 1.5, color: logColor(l.type) }}>
+                  {l.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
     </div>
   );
 }
@@ -137,32 +155,43 @@ export function GlobalView({ state, messages, log, mySeat }: GlobalViewProps) {
 export interface FeedViewProps {
   state: GameState;
   messages: ChatMessage[];
+  log: GameEvent[];
   mySeat: number | null;
   onSend: (to: number | null, text: string) => void;
 }
-export function FeedView({ state, messages, mySeat, onSend }: FeedViewProps) {
-  const groups: { round: number; msgs: ChatMessage[] }[] = [];
-  for (const m of messages) {
-    const last = groups[groups.length - 1];
-    if (last && last.round === m.round) last.msgs.push(m);
-    else groups.push({ round: m.round, msgs: [m] });
-  }
+export function FeedView({ state, messages, log, mySeat, onSend }: FeedViewProps) {
+  // One section per round, interleaving everyone's actions (the event log) with
+  // the table talk for that round.
+  const rounds = [...new Set([...log.map((l) => l.round), ...messages.map((m) => m.round)])].sort(
+    (a, b) => a - b,
+  );
+  const groups = rounds.map((round) => ({
+    round,
+    events: log.filter((l) => l.round === round),
+    msgs: messages.filter((m) => m.round === round),
+  }));
+  const empty = log.length === 0 && messages.length === 0;
   return (
     <main style={{ flex: 1, minHeight: 0, display: "flex", justifyContent: "center" }}>
       <div style={{ width: 740, maxWidth: "100%", minHeight: 0, display: "flex", flexDirection: "column", ...panel, padding: "14px 18px" }}>
-        <h2 style={sectionHeading}>Negotiation feed — public broadcasts &amp; DMs</h2>
+        <h2 style={sectionHeading}>Feed — actions &amp; table talk</h2>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, paddingRight: 4 }}>
           {groups.map((g) => (
-            <div key={g.round} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div key={g.round} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               <div style={{ fontFamily: F.mono, fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: C.faint, padding: "10px 0 4px", borderBottom: `1px solid ${C.borderSoft}`, marginBottom: 4 }}>
                 Round {g.round}
               </div>
+              {g.events.map((l, i) => (
+                <div key={`e${i}`} style={{ fontFamily: F.mono, fontSize: 11.5, lineHeight: 1.5, color: logColor(l.type) }}>
+                  {l.text}
+                </div>
+              ))}
               {g.msgs.map((m) => (
-                <Message key={m.seq} m={m} players={state.players} mySeat={mySeat} textSize={13} />
+                <Message key={`m${m.seq}`} m={m} players={state.players} mySeat={mySeat} textSize={13} />
               ))}
             </div>
           ))}
-          {messages.length === 0 && <div style={{ fontSize: 12, color: C.faint, padding: "8px 2px" }}>No table talk yet.</div>}
+          {empty && <div style={{ fontSize: 12, color: C.faint, padding: "8px 2px" }}>Nothing yet.</div>}
         </div>
         {mySeat !== null && <Composer players={state.players} from={mySeat} onSend={onSend} prefix={`send as ${state.players[mySeat]!.name} · to`} />}
       </div>

@@ -8,7 +8,7 @@ import {
   computeAutoFeed,
   RuleError,
 } from "../shared/engine/apply";
-import { newGame } from "../shared/engine/game";
+import { newGame, DEFAULT_NAMES } from "../shared/engine/game";
 import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
 import {
@@ -31,8 +31,11 @@ export interface GameRunnerOpts {
   /** Pre-built agents for "remote" controllers, indexed by player. */
   agents?: Agent[];
   /** Created paused; call resume() to start play (coworld mode waits for
-   *  all remote players to connect first). */
+   *  all remote players to connect first). A paused boot is also the lobby:
+   *  players join / bots are added until start. */
   startPaused?: boolean;
+  /** Seat cap (engine max). Defaults to 4. */
+  maxPlayers?: number;
   onUpdate?: () => void;
   onActPrompt?: (entry: ActPromptEntry) => void;
   onError?: (err: unknown) => void;
@@ -49,8 +52,10 @@ export type AppliedAction =
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export class GameRunner {
-  #state: GameState;
+  /** Null only while an empty lobby (no cogs, nobody joined) is waiting. */
+  #state: GameState | null;
   #controllers: Controller[];
+  #names: string[];
   #guidance: string[];
   #models: string[];
   #availableModels: BedrockModel[] = [];
@@ -60,23 +65,31 @@ export class GameRunner {
   #agents = new Map<string, Agent>();
   #opts: GameRunnerOpts;
   #paused = false;
+  /** False while the lobby collects players; true once play has begun. */
+  #started = false;
   #ticking = false;
   #generation = 0;
+  #maxPlayers: number;
   clientCount = 0;
 
   constructor(opts: GameRunnerOpts) {
     this.#opts = opts;
+    this.#maxPlayers = opts.maxPlayers ?? 4;
     this.#controllers = [...opts.controllers];
-    this.#guidance = Array.from({ length: opts.numPlayers }, () => "");
-    this.#models = Array.from({ length: opts.numPlayers }, () => DEFAULT_BEDROCK_MODEL);
+    this.#names = opts.controllers.map((_, i) => opts.names?.[i] ?? DEFAULT_NAMES[i] ?? `Player ${i + 1}`);
+    this.#guidance = this.#names.map(() => "");
+    this.#models = this.#names.map(() => DEFAULT_BEDROCK_MODEL);
     this.#paused = opts.startPaused ?? false;
-    this.#state = newGame({ seed: opts.seed, numPlayers: opts.numPlayers, names: opts.names });
-    if (this.#controllers.length !== opts.numPlayers) {
-      throw new Error(`need ${opts.numPlayers} controllers`);
-    }
+    // A paused boot is the lobby (not yet started); --start boots into play.
+    this.#started = !this.#paused;
+    this.#state = this.#names.length >= 1 ? this.#build(opts.seed) : null;
   }
 
-  get state(): GameState {
+  #build(seed: number): GameState {
+    return newGame({ seed, numPlayers: this.#names.length, names: this.#names });
+  }
+
+  get state(): GameState | null {
     return this.#state;
   }
 
@@ -85,21 +98,46 @@ export class GameRunner {
   }
 
   status(): ServerStatus {
+    const s = this.#state;
     return {
-      round: this.#state.round,
-      phase: this.#state.phase,
-      currentPlayer: this.#state.currentPlayer,
-      toFeed: this.#state.toFeed,
+      round: s?.round ?? 0,
+      phase: this.#started ? (s?.phase ?? "work") : "lobby",
+      currentPlayer: s?.currentPlayer ?? 0,
+      toFeed: s?.toFeed ?? [],
       controllers: [...this.#controllers],
       guidance: [...this.#guidance],
       models: [...this.#models],
       availableModels: [...this.#availableModels],
       thinking: this.#thinking,
       paused: this.#paused,
-      finished: this.#state.phase === "finished",
+      started: this.#started,
+      roster: this.#names.map((name, i) => ({ name, controller: this.#controllers[i]! })),
+      maxPlayers: this.#maxPlayers,
+      finished: s?.phase === "finished",
       clients: this.clientCount,
       readOnly: false, // SocketHub overrides in tournament mode.
     };
+  }
+
+  /** Add a seat to the lobby. Throws if play has started or the table is full. */
+  seat(name: string, controller: Controller): number {
+    if (this.#started) throw new RuleError("the game has already started");
+    if (this.#names.length >= this.#maxPlayers) throw new RuleError("the table is full");
+    const idx = this.#names.length;
+    this.#names.push(name.trim() || `Player ${idx + 1}`);
+    this.#controllers.push(controller);
+    this.#guidance.push("");
+    this.#models.push(this.#defaultModel());
+    // Rebuild the (still-paused) game so its size tracks the roster.
+    this.#state = this.#build(this.#opts.seed);
+    this.#opts.onUpdate?.();
+    return idx;
+  }
+
+  /** Add an autopilot (LLM) bot to the lobby. */
+  addBot(): number {
+    const n = this.#controllers.filter((c) => c !== "human").length + 1;
+    return this.seat(`Bot ${n}`, "llm");
   }
 
   /** Publish the Bedrock models discovered invokable at startup; broadcasts so
@@ -151,7 +189,7 @@ export class GameRunner {
 
   /** Record + fan out a table-talk message. Bots auto-reply to DMs they get. */
   postChat(from: number, to: number | null, text: string): ChatMessage {
-    const message: ChatMessage = { seq: this.#chatSeq++, round: this.#state.round, from, to, text };
+    const message: ChatMessage = { seq: this.#chatSeq++, round: this.#state?.round ?? 0, from, to, text };
     this.#chat.push(message);
     if (this.#chat.length > 500) this.#chat.shift();
     this.#opts.onChat?.(message);
@@ -161,11 +199,11 @@ export class GameRunner {
       to !== from &&
       this.#controllers[from] === "human" &&
       this.#controllers[to] !== "human" &&
-      this.#state.phase !== "finished"
+      this.#state?.phase !== "finished"
     ) {
       const generation = this.#generation;
       setTimeout(() => {
-        if (generation === this.#generation && this.#state.phase !== "finished") {
+        if (generation === this.#generation && this.#state?.phase !== "finished") {
           this.postChat(to, from, dmReply());
         }
       }, 900 + Math.random() * 800);
@@ -199,8 +237,10 @@ export class GameRunner {
 
   /** Whose decision the game is waiting on, or null when finished. */
   pendingPlayer(): number | null {
-    if (this.#state.phase === "work") return this.#state.currentPlayer;
-    if (this.#state.phase === "feeding") return this.#state.toFeed[0] ?? null;
+    const s = this.#state;
+    if (!s) return null;
+    if (s.phase === "work") return s.currentPlayer;
+    if (s.phase === "feeding") return s.toFeed[0] ?? null;
     return null;
   }
 
@@ -218,61 +258,62 @@ export class GameRunner {
     this.#opts.onUpdate?.();
   }
 
+  /** Resume play. From the lobby this is "Start": locks the roster and begins. */
   resume(): void {
+    if (!this.#state) return; // empty lobby — nothing to start yet
     this.#paused = false;
+    this.#started = true;
     this.#opts.onUpdate?.();
     void this.tick();
   }
 
-  reset(seed?: number, numPlayers?: number): void {
+  /** "New game": replay with the current roster (same seats, fresh deal). */
+  reset(seed?: number): void {
     this.#generation++;
-    const players = numPlayers ?? this.#state.numPlayers;
-    if (players !== this.#controllers.length) {
-      this.#controllers = Array.from({ length: players }, (_, i) =>
-        this.#controllers[i] ?? "scripted",
-      );
-    }
-    this.#guidance = Array.from({ length: players }, (_, i) => this.#guidance[i] ?? "");
-    this.#models = Array.from({ length: players }, (_, i) => this.#models[i] ?? DEFAULT_BEDROCK_MODEL);
     this.#reconcileModels();
     this.#chat = [];
     this.#chatSeq = 0;
     this.#thinking = null;
     this.#agents.clear();
-    this.#state = newGame({
-      seed: seed ?? this.#state.seed + 1,
-      numPlayers: players,
-      names: this.#opts.names,
-    });
+    const nextSeed = seed ?? (this.#state ? this.#state.seed + 1 : this.#opts.seed);
+    this.#state = this.#names.length >= 1 ? this.#build(nextSeed) : null;
     this.#opts.onUpdate?.();
     void this.tick();
   }
 
   #applyPlace(playerIdx: number, placement: Placement): void {
-    const beforeRound = this.#state.round;
-    this.#state = applyPlacement(this.#state, playerIdx, placement).state;
+    const before = this.#state;
+    if (!before) return;
+    const after = applyPlacement(before, playerIdx, placement).state;
+    this.#state = after;
     this.#opts.onAction?.({ playerIdx, kind: "place", placement });
-    if (this.#state.round > beforeRound && this.#state.phase === "work") this.#maybeChatter();
+    if (after.round > before.round && after.phase === "work") this.#maybeChatter();
   }
 
   /** On a round boundary, a random bot seat may post a public quip. */
   #maybeChatter(): void {
+    const s = this.#state;
+    if (!s) return;
     if (Math.random() > 0.6) return;
     const bots = this.#controllers
       .map((c, i) => (c !== "human" ? i : -1))
       .filter((i) => i >= 0);
     if (bots.length === 0) return;
-    this.postChat(bots[Math.floor(Math.random() * bots.length)]!, null, roundQuip(this.#state));
+    this.postChat(bots[Math.floor(Math.random() * bots.length)]!, null, roundQuip(s));
   }
 
   #applyFeed(playerIdx: number, decision: FeedDecision): void {
-    this.#state = applyFeeding(this.#state, playerIdx, decision).state;
+    const before = this.#state;
+    if (!before) return;
+    this.#state = applyFeeding(before, playerIdx, decision).state;
     this.#opts.onAction?.({ playerIdx, kind: "feed", decision });
   }
 
   /** Apply a human placement; throws RuleError for the caller to report. */
   humanPlace(playerIdx: number, placement: Placement): void {
-    if (this.#state.phase !== "work" || this.#state.currentPlayer !== playerIdx) {
+    const s = this.#state;
+    if (!s) throw new RuleError("the game has not started");
+    if (s.phase !== "work" || s.currentPlayer !== playerIdx) {
       throw new RuleError("it is not your turn to place");
     }
     this.#applyPlace(playerIdx, placement);
@@ -282,7 +323,9 @@ export class GameRunner {
 
   /** Apply a human feeding decision; throws RuleError to report. */
   humanFeed(playerIdx: number, decision: FeedDecision): void {
-    if (this.#state.phase !== "feeding" || !this.#state.toFeed.includes(playerIdx)) {
+    const s = this.#state;
+    if (!s) throw new RuleError("the game has not started");
+    if (s.phase !== "feeding" || !s.toFeed.includes(playerIdx)) {
       throw new RuleError("you are not feeding right now");
     }
     this.#applyFeed(playerIdx, decision);
@@ -300,8 +343,10 @@ export class GameRunner {
         const pending = this.pendingPlayer();
         if (pending === null) break;
         if (this.#controllers[pending] === "human") break;
+        const game = this.#state;
+        if (!game) break;
         const agent = this.#agentFor(pending);
-        const view = buildView(this.#state, pending);
+        const view = buildView(game, pending);
         view.guidance = this.#guidance[pending] || undefined;
         // Show llm seats the table-talk they can see (public + DMs to them).
         if (this.#controllers[pending] === "llm") {
@@ -315,7 +360,7 @@ export class GameRunner {
           this.#thinking = pending;
           this.#opts.onUpdate?.();
         }
-        if (this.#state.phase === "work") {
+        if (game.phase === "work") {
           let placement: Placement;
           try {
             placement = await agent.decidePlacement(view);
@@ -336,14 +381,14 @@ export class GameRunner {
             decision = await agent.decideFeeding(view);
           } catch (err) {
             this.#opts.onError?.(err);
-            decision = computeAutoFeed(this.#state, pending);
+            decision = computeAutoFeed(game, pending);
           }
           if (generation !== this.#generation) break;
           try {
             this.#applyFeed(pending, decision);
           } catch (err) {
             if (!(err instanceof RuleError)) throw err;
-            this.#applyFeed(pending, computeAutoFeed(this.#state, pending));
+            this.#applyFeed(pending, computeAutoFeed(game, pending));
           }
         }
         this.#opts.onUpdate?.();

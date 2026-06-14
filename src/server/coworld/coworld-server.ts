@@ -144,10 +144,11 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
 
   let finishing = false;
   const finish = async () => {
-    if (finishing || runner.state.phase !== "finished") return;
+    const finalState = runner.state;
+    if (finishing || !finalState || finalState.phase !== "finished") return;
     finishing = true;
     try {
-      const results = computeResults(runner.state);
+      const results = computeResults(finalState);
       console.log(`[coworld] game over: scores=${JSON.stringify(results.scores)}`);
       await writeData(opts.resultsUri, JSON.stringify(results), {
         contentType: "application/json",
@@ -169,7 +170,7 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
         agent.send({
           type: "final",
           results,
-          state: redactState(runner.state, agent.slot, { maskFuture: true }).state,
+          state: redactState(finalState, agent.slot, { maskFuture: true }).state,
         });
       }
       await sleep(500);

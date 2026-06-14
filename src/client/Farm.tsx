@@ -26,6 +26,8 @@ export interface FarmProps {
   plannedEdges?: Set<string>;
   onEdgeClick?: (edge: string) => void;
   compact?: boolean;
+  /** Scale to fill the container width (preserving aspect via the viewBox). */
+  fit?: boolean;
 }
 
 function cellXY(cell: number): { x: number; y: number } {
@@ -65,6 +67,7 @@ export function Farm({
   plannedEdges,
   onEdgeClick,
   compact,
+  fit,
 }: FarmProps) {
   const width = PAD * 2 + COLS * CELL + (COLS - 1) * GAP;
   const height = PAD * 2 + ROWS * CELL + (ROWS - 1) * GAP;
@@ -102,7 +105,11 @@ export function Farm({
     <svg
       className={`farm${compact ? " compact" : ""}`}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ width: compact ? width * 0.72 : width, height: compact ? height * 0.72 : height }}
+      style={
+        fit
+          ? { width: "100%", height: "auto", display: "block" }
+          : { width: compact ? width * 0.72 : width, height: compact ? height * 0.72 : height }
+      }
     >
       <rect x="0" y="0" width={width} height={height} rx="10" className="farm-bg" />
       <defs>

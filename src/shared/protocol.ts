@@ -52,6 +52,12 @@ export interface ServerStatus {
   /** Seat whose decision an agent is currently computing, or null. */
   thinking: number | null;
   paused: boolean;
+  /** False while the lobby is collecting players; true once play has begun. */
+  started: boolean;
+  /** Lobby roster (names + controllers), valid even before the game exists. */
+  roster: { name: string; controller: Controller }[];
+  /** Seat cap for the lobby (engine max). */
+  maxPlayers: number;
   finished: boolean;
   clients: number;
   /** Tournament (coworld) mode: clients spectate; all commands rejected. */
@@ -76,7 +82,7 @@ export interface ChatMessage {
 }
 
 export type ServerMessage =
-  | { type: "state"; state: GameState; handSizes: HandSizes[] }
+  | { type: "state"; state: GameState | null; handSizes: HandSizes[] }
   | { type: "status"; status: ServerStatus }
   | { type: "actPrompt"; entry: ActPromptWire }
   | { type: "chat"; message: ChatMessage }
@@ -127,6 +133,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),
+  z.object({ type: z.literal("addBot") }),
   z.object({
     type: z.literal("reset"),
     seed: z.number().int().optional(),

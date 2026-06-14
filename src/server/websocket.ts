@@ -6,7 +6,7 @@ import { GameRunner } from "./game-runner";
 import { redactState } from "./redact";
 import { ActPromptEntry } from "../agents/types";
 import { RuleError } from "../shared/engine/apply";
-import { ChatMessage, ClientMessage, clientMessageSchema, ServerMessage } from "../shared/protocol";
+import { ChatMessage, ClientMessage, clientMessageSchema, HandSizes, ServerMessage } from "../shared/protocol";
 
 /** A seat sees its own DMs; the global observer (null) sees every DM. */
 function chatVisibleTo(message: ChatMessage, playerIdx: number | null): boolean {
@@ -92,7 +92,9 @@ export class SocketHub {
   }
 
   #redact(playerIdx: number | null) {
-    return redactState(this.#runner.state, playerIdx, { maskFuture: this.#opts.readOnly });
+    const state = this.#runner.state;
+    if (!state) return { state: null, handSizes: [] as HandSizes[] };
+    return redactState(state, playerIdx, { maskFuture: this.#opts.readOnly });
   }
 
   #sendSnapshot(client: ClientInfo): void {
@@ -203,8 +205,11 @@ export class SocketHub {
         case "resume":
           this.#runner.resume();
           break;
+        case "addBot":
+          this.#runner.addBot();
+          break;
         case "reset":
-          this.#runner.reset(message.seed, message.players);
+          this.#runner.reset(message.seed);
           break;
       }
     } catch (err) {
