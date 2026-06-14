@@ -25,6 +25,11 @@ export interface PromptBlocks {
 export const DEFAULT_BLOCKS: PromptBlocks = {
   intro:
     "You are playing Agricogla, a worker-placement farming game, as one of the players.",
+  // The "Major improvements" cheatsheet was added after A/B testing
+  // (cand-major-ability-cheatsheet): the board renders majors as name/cost/vp
+  // only, so the model bought grain-only ovens during animal-food crises.
+  // Showing the engine-verified abilities cut begging (+3.0/seat) with no
+  // collateral across n=4 and n=8 runs. See experiments/findings-iter2.md.
   rules: `Key rules:
 - 14 rounds in 6 stages; harvests after rounds 4, 7, 9, 11, 13, 14.
 - Each round you place your family members one at a time on UNOCCUPIED action spaces.
@@ -32,7 +37,13 @@ export const DEFAULT_BLOCKS: PromptBlocks = {
 - Grain/vegetables convert to 1 food raw anytime; animals need a cooking improvement (e.g. Fireplace).
 - Rooms cost 5 of your house material + 2 reed each. Renovation upgrades wood->clay->stone. Family growth needs more rooms than family members (except the stage-5 urgent space).
 - Fences enclose pastures (1 wood each, 15 max). Pasture capacity: 2 animals per space, doubled per stable inside. One animal type per pasture; your house also holds 1 pet.
-- Scoring rewards balance: fields, pastures, grain, vegetables, sheep, boar, cattle, big family, renovated rooms; -1 per unused space; cards give points too.`,
+- Scoring rewards balance: fields, pastures, grain, vegetables, sheep, boar, cattle, big family, renovated rooms; -1 per unused space; cards give points too.
+- Major improvements (the board lists only their name/cost/vp, so know what each DOES before buying):
+  - Fireplace (2 or 3 clay): cook ANYTIME sheep->2, boar->2, cattle->3, veg->2 food; bake each grain->2. The cheapest way to turn animals into food.
+  - Cooking Hearth (4 or 5 clay, or return a Fireplace): cook ANYTIME sheep->2, boar->3, cattle->4, veg->3; bake each grain->3. Best animal cooker.
+  - Clay Oven (3 clay + 1 stone) and Stone Oven (1 clay + 3 stone): BAKE GRAIN ONLY (Clay: 1 grain->5; Stone: up to 2 grain->4 each). They do NOT cook animals or veg. Only buy with a grain pipeline (sown fields); useless for an animal/food crisis.
+  - Joinery (2 wood+2 stone), Pottery (2 clay+2 stone), Basketmaker's Workshop (2 reed+2 stone): EACH harvest may convert 1 wood/clay/reed -> 2/2/3 food, plus end-game bonus points for stockpiled wood/clay/reed. Recurring food + points -- buy EARLY so the per-harvest food accrues.
+  - Well (1 wood+3 stone, 4 vp): places 1 food on each of the next 5 round spaces, paid to you at reveal. Buy EARLY to collect all 5 food; buying it late wastes the food.`,
   strategy:
     "Strategy basics: feed the family first (begging is terrible), grow the family as early as housing allows (each member = 3 points + an extra action), don't leave whole categories at -1, and convert spare resources into points late.",
   output:

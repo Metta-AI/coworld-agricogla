@@ -22,3 +22,5 @@ above the contamination threshold are excluded.
 | 2026-06-13 12:08 | cand-memory-chat | baseline | sonnet-4-6 | 4/4 | -5.0 | 25% | 0.625 | no significant difference (delta -5.0 pts/seat, p=0.625) |
 | 2026-06-13 12:48 | cand-major-ability-cheatsheet | baseline | sonnet-4-6 | 4/4 | +2.1 | 0% | 1.000 | no significant difference (delta 2.1 pts/seat, p=1.000) |
 | 2026-06-13 13:24 | cand-secure-food-early-with-buffer-1 | baseline | sonnet-4-6 | 4/4 | -6.6 | 13% | 0.250 | no significant difference (delta -6.6 pts/seat, p=0.250) |
+| 2026-06-13 16:57 | cand-major-ability-cheatsheet | baseline | sonnet-4-6 | 8/8 | +3.4 | 50% | 0.453 | no significant difference (delta 3.4 pts/seat, p=0.453) |
+| 2026-06-13 17:32 | cand-fill-additive | baseline | sonnet-4-6 | 8/8 | -3.9 | 31% | 0.016 | candidate WORSE by 3.9 pts/seat (sign-test p=0.016) |
