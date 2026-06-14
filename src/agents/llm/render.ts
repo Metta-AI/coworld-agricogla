@@ -3,20 +3,10 @@ import { COLS, GameState, PlayerState, ROWS, goodsToText, spaceIndex } from "../
 import { computePastures } from "../../shared/engine/farmyard";
 import { HARVEST_ROUNDS } from "../../shared/engine/boards";
 
-export const SYSTEM_PROMPT = `You are playing Agricogla, a worker-placement farming game, as one of the players.
-
-Key rules:
-- 14 rounds in 6 stages; harvests after rounds 4, 7, 9, 11, 13, 14.
-- Each round you place your family members one at a time on UNOCCUPIED action spaces.
-- At each harvest: sown fields yield 1 crop each, then you must pay 2 food per family member (newborns 1), then animals breed (+1 per type with 2+ if there is room). Missing food = begging cards at -3 points each.
-- Grain/vegetables convert to 1 food raw anytime; animals need a cooking improvement (e.g. Fireplace).
-- Rooms cost 5 of your house material + 2 reed each. Renovation upgrades wood->clay->stone. Family growth needs more rooms than family members (except the stage-5 urgent space).
-- Fences enclose pastures (1 wood each, 15 max). Pasture capacity: 2 animals per space, doubled per stable inside. One animal type per pasture; your house also holds 1 pet.
-- Scoring rewards balance: fields, pastures, grain, vegetables, sheep, boar, cattle, big family, renovated rooms; -1 per unused space; cards give points too.
-
-Strategy basics: feed the family first (begging is terrible), grow the family as early as housing allows (each member = 3 points + an extra action), don't leave whole categories at -1, and convert spare resources into points late.
-
-You will get the current state and your options. Reply by calling submit_placement (or submit_feeding when asked to feed) exactly once with a legal choice. Be decisive; no extra commentary.`;
+// The policy prompt now lives in composable blocks (prompt.ts) so the
+// experiment harness can A/B-test individual blocks; re-exported here so
+// existing importers keep working unchanged.
+export { SYSTEM_PROMPT } from "./prompt";
 
 function farmText(player: PlayerState): string {
   const layout = computePastures(player.spaces, player.fences);
@@ -57,10 +47,35 @@ function guidanceBlock(view: AgentView): string[] {
   ];
 }
 
+/** The seat's own diary, written via the memory capability. */
+function memoryBlock(view: AgentView): string[] {
+  const entries = view.memory;
+  if (!entries || entries.length === 0) return [];
+  return ["YOUR DIARY (private notes you wrote earlier):", ...entries.map((e) => `- ${e}`), ""];
+}
+
+/** Table-talk visible to this seat (other players' messages). */
+function messagesBlock(view: AgentView): string[] {
+  const msgs = view.messages;
+  if (!msgs || msgs.length === 0) return [];
+  const me = view.playerIdx;
+  const lines = msgs.map((m) => {
+    const who = view.state.players[m.from]?.name ?? `player ${m.from}`;
+    const dm = m.to === me ? " (to you)" : "";
+    return `- r${m.round} ${who}${dm}: ${m.text}`;
+  });
+  return ["MESSAGES FROM OTHER COGS:", ...lines, ""];
+}
+
+/** Agent-context blocks (guidance, diary, messages) shared by both prompts. */
+function contextBlocks(view: AgentView): string[] {
+  return [...guidanceBlock(view), ...memoryBlock(view), ...messagesBlock(view)];
+}
+
 export function renderPlacementPrompt(view: AgentView): string {
   const { state, playerIdx, options, choices } = view;
   const me = state.players[playerIdx]!;
-  const lines: string[] = [...guidanceBlock(view)];
+  const lines: string[] = [...contextBlocks(view)];
   const harvest = HARVEST_ROUNDS.has(state.round) ? " (HARVEST after this round)" : "";
   lines.push(`Round ${state.round}/14${harvest}. You are ${me.name} (player ${playerIdx}).`);
   lines.push(
@@ -124,7 +139,7 @@ export function renderPlacementPrompt(view: AgentView): string {
 export function renderFeedingPrompt(view: AgentView): string {
   const { state, playerIdx, choices } = view;
   const me = state.players[playerIdx]!;
-  const lines: string[] = [...guidanceBlock(view)];
+  const lines: string[] = [...contextBlocks(view)];
   lines.push(`Harvest feeding, round ${state.round}. You are ${me.name}.`);
   lines.push(`You must pay ${choices.foodNeededNow} food. You have ${me.resources.food} food.`);
   lines.push(

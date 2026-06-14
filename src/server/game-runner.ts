@@ -11,7 +11,13 @@ import {
 import { newGame, DEFAULT_NAMES } from "../shared/engine/game";
 import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
-import { ChatMessage, Controller, DEFAULT_BEDROCK_MODEL, ServerStatus } from "../shared/protocol";
+import {
+  BedrockModel,
+  ChatMessage,
+  Controller,
+  DEFAULT_BEDROCK_MODEL,
+  ServerStatus,
+} from "../shared/protocol";
 import { dmReply, roundQuip } from "./chatter";
 
 export interface GameRunnerOpts {
@@ -52,6 +58,7 @@ export class GameRunner {
   #names: string[];
   #guidance: string[];
   #models: string[];
+  #availableModels: BedrockModel[] = [];
   #chat: ChatMessage[] = [];
   #chatSeq = 0;
   #thinking: number | null = null;
@@ -100,6 +107,7 @@ export class GameRunner {
       controllers: [...this.#controllers],
       guidance: [...this.#guidance],
       models: [...this.#models],
+      availableModels: [...this.#availableModels],
       thinking: this.#thinking,
       paused: this.#paused,
       started: this.#started,
@@ -119,7 +127,7 @@ export class GameRunner {
     this.#names.push(name.trim() || `Player ${idx + 1}`);
     this.#controllers.push(controller);
     this.#guidance.push("");
-    this.#models.push(DEFAULT_BEDROCK_MODEL);
+    this.#models.push(this.#defaultModel());
     // Rebuild the (still-paused) game so its size tracks the roster.
     this.#state = this.#build(this.#opts.seed);
     this.#opts.onUpdate?.();
@@ -130,6 +138,34 @@ export class GameRunner {
   addBot(): number {
     const n = this.#controllers.filter((c) => c !== "human").length + 1;
     return this.seat(`Bot ${n}`, "llm");
+  }
+
+  /** Publish the Bedrock models discovered invokable at startup; broadcasts so
+   *  connected clients update their autopilot picker. */
+  setAvailableModels(models: BedrockModel[]): void {
+    this.#availableModels = [...models];
+    this.#reconcileModels();
+    this.#opts.onUpdate?.();
+  }
+
+  /** A seat's default brain: the configured default if this account can invoke
+   *  it, else the first discovered model, else the static default (used only
+   *  before discovery has run). */
+  #defaultModel(): string {
+    if (this.#availableModels.some((m) => m.id === DEFAULT_BEDROCK_MODEL)) {
+      return DEFAULT_BEDROCK_MODEL;
+    }
+    return this.#availableModels[0]?.id ?? DEFAULT_BEDROCK_MODEL;
+  }
+
+  /** Snap any seat pointed at a non-invokable model back to an available one,
+   *  so toggling autopilot (which uses the seat's stored model, not the picker)
+   *  never selects a model that 404s and silently degrades to scripted. No-op
+   *  until discovery has found at least one model. */
+  #reconcileModels(): void {
+    if (this.#availableModels.length === 0) return;
+    const usable = new Set(this.#availableModels.map((m) => m.id));
+    this.#models = this.#models.map((m) => (usable.has(m) ? m : this.#defaultModel()));
   }
 
   setGuidance(playerIdx: number, text: string): void {
@@ -188,6 +224,10 @@ export class GameRunner {
       agent = buildAgent(controller === "human" ? "scripted" : controller, `player${playerIdx}`, {
         seed: this.#opts.seed * 1000 + playerIdx,
         model: this.#models[playerIdx],
+        // Local llm seats keep a diary and can table-talk; their messages flow
+        // into the same chat feed humans use.
+        capabilities: { memory: true, chat: true },
+        onChat: (to, text) => this.postChat(playerIdx, to, text),
         onActPrompt: this.#opts.onActPrompt,
       });
       this.#agents.set(key, agent);
@@ -230,6 +270,7 @@ export class GameRunner {
   /** "New game": replay with the current roster (same seats, fresh deal). */
   reset(seed?: number): void {
     this.#generation++;
+    this.#reconcileModels();
     this.#chat = [];
     this.#chatSeq = 0;
     this.#thinking = null;
@@ -307,6 +348,12 @@ export class GameRunner {
         const agent = this.#agentFor(pending);
         const view = buildView(game, pending);
         view.guidance = this.#guidance[pending] || undefined;
+        // Show llm seats the table-talk they can see (public + DMs to them).
+        if (this.#controllers[pending] === "llm") {
+          view.messages = this.#chat.filter(
+            (m) => m.from !== pending && (m.to === null || m.to === pending),
+          );
+        }
         // Signal "thinking" only for the slow controllers the UI cares about.
         const slow = this.#controllers[pending] === "llm" || this.#controllers[pending] === "remote";
         if (slow && this.#thinking !== pending) {

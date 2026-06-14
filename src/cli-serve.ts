@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { startServer } from "./server/runtime";
+import { discoverAvailableModels } from "./agents/llm/model-discovery";
 import { Controller } from "./shared/protocol";
 
 interface ServeOptions {
@@ -104,6 +105,15 @@ async function main(): Promise<void> {
       ? `  status:       playing (--start)`
       : `  status:       lobby (${opts.controllers.length}/4) — Add Bot / share /join, then Start (or pass --start)`,
   );
+
+  // Discover which Bedrock models this account/region can actually invoke and
+  // publish them as the autopilot choices. Non-blocking: the server is already
+  // serving; the picker fills in once the probes return (empty ⇒ scripted only).
+  void discoverAvailableModels().then((models) => {
+    handle.runner.setAvailableModels(models);
+    const names = models.map((m) => m.label).join(", ");
+    console.log(`  autopilot models: ${names || "none — Bedrock unreachable, scripted only"}`);
+  });
 }
 
 const isDirectRun =

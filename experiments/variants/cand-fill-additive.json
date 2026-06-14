@@ -1,0 +1,9 @@
+{
+  "name": "cand-fill-additive",
+  "parent": "baseline",
+  "notes": "Iter2: fill-the-board targets reframed as ADDITIVE \u2014 explicitly subordinate to family growth + card play (iter1 fill won on Unused/Begging/diversity but lost Family -4.9 and Card -5.9).",
+  "blocks": {
+    "strategy": "Strategy basics: feed the family first (begging is -3 each and decides games). Your TOP priorities stay (1) growing the family as early as housing allows \u2014 each member is 3 points PLUS an extra action every remaining round, so it compounds \u2014 and (2) playing strong occupations and improvements early. Do NOT skip growth or card-play to tidy the board. AROUND those priorities, treat filling the board as scoring, not optional infrastructure: every empty category is -1 and every unused farmyard space is -1, so turning an empty thing into a filled thing is a 2-point swing. With the placements you are NOT spending on growth, cards, or covering the next harvest: plow and SOW a field by ~round 4 (a plowed-but-unsown field scores nothing, and a sown field also feeds you); start one animal type early (Sheep Market is open from round 1 and hands its whole pile to one placement) and keep two types alive for breeding and points; build a first pasture (fences are 1 wood each) or a cheap stable (2 wood) to convert an empty space into a used one; get a vegetable sown before the end. Do not let wood pile up unspent \u2014 accumulation spaces give their whole pile in one grab, so a single late placement can flip a -1 to +1. Aim for at most ~3 empty spaces by round 11, and convert spare resources into points late."
+  },
+  "guidance": ""
+}

@@ -6,27 +6,29 @@ import { feedDecisionSchema, placementSchema } from "./engine/placements";
  *  (coworld tournament mode) and cannot be selected from the UI. */
 export type Controller = "human" | "scripted" | "llm" | "remote";
 
-/** Bedrock models the autopilot can drive a seat with. `enabled` reflects
- *  whether this AWS account has cleared the Anthropic use-case form for the
- *  model — disabled ones 404 with ResourceNotFoundException until the form is
- *  submitted, so the picker can flag them. Opus is cleared on softmax-org;
- *  Sonnet/Haiku still need the form. */
+/** A Bedrock model the autopilot can drive a seat with. The set the picker
+ *  actually offers is discovered at server startup (see
+ *  `agents/llm/model-discovery.ts`) by probing each candidate — only models
+ *  this account/region can invoke are shown, so use-case-form-gated models
+ *  that 404 with ResourceNotFoundException never appear as choices. */
 export interface BedrockModel {
   id: string;
   label: string;
-  enabled: boolean;
 }
-export const BEDROCK_MODELS: BedrockModel[] = [
-  { id: "us.anthropic.claude-opus-4-8", label: "Opus 4.8", enabled: true },
-  { id: "us.anthropic.claude-opus-4-7", label: "Opus 4.7", enabled: true },
-  { id: "us.anthropic.claude-opus-4-6-v1", label: "Opus 4.6", enabled: true },
-  { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5", enabled: true },
-  { id: "us.anthropic.claude-opus-4-1-20250805-v1:0", label: "Opus 4.1", enabled: true },
-  { id: "us.anthropic.claude-sonnet-4-6", label: "Sonnet 4.6 — needs form", enabled: false },
-  { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5 — needs form", enabled: false },
+/** Curated probe pool: the tool-capable Claude models we support, newest
+ *  first. Startup discovery keeps whichever of these the running account can
+ *  actually invoke; the rest are never offered. */
+export const MODEL_CANDIDATES: BedrockModel[] = [
+  { id: "us.anthropic.claude-opus-4-8", label: "Opus 4.8" },
+  { id: "us.anthropic.claude-opus-4-7", label: "Opus 4.7" },
+  { id: "us.anthropic.claude-opus-4-6-v1", label: "Opus 4.6" },
+  { id: "us.anthropic.claude-opus-4-5-20251101-v1:0", label: "Opus 4.5" },
+  { id: "us.anthropic.claude-opus-4-1-20250805-v1:0", label: "Opus 4.1" },
+  { id: "us.anthropic.claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { id: "us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Haiku 4.5" },
 ];
 export const DEFAULT_BEDROCK_MODEL = "us.anthropic.claude-opus-4-8";
-const BEDROCK_MODEL_IDS = BEDROCK_MODELS.map((m) => m.id) as [string, ...string[]];
+const BEDROCK_MODEL_IDS = MODEL_CANDIDATES.map((m) => m.id) as [string, ...string[]];
 
 export interface HandSizes {
   occupations: number;
@@ -43,6 +45,10 @@ export interface ServerStatus {
   guidance: string[];
   /** Per-seat Bedrock model id the autopilot drives that seat with. */
   models: string[];
+  /** Bedrock models discovered invokable at startup — the only autopilot
+   *  choices the picker offers. Empty when no model is reachable (e.g. no
+   *  Bedrock credentials), so the UI then offers scripted play only. */
+  availableModels: BedrockModel[];
   /** Seat whose decision an agent is currently computing, or null. */
   thinking: number | null;
   paused: boolean;

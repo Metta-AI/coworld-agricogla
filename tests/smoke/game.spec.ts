@@ -1,47 +1,77 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** Read the live round number from the header chip. */
+async function currentRound(page: Page): Promise<number> {
+  const value = await page.getByTestId("round-indicator").getAttribute("data-round");
+  return Number(value);
+}
+
+/** Start a fresh game and wait for it to be live again. When a game has ended
+ *  the final-scoring overlay covers the footer button, so use its "Play again"
+ *  button in that case. */
+async function resetGame(page: Page): Promise<void> {
+  await expect(page.getByTestId("round-indicator")).toBeVisible();
+  const playAgain = page.getByRole("button", { name: "Play again" });
+  if (await playAgain.isVisible().catch(() => false)) {
+    await playAgain.click();
+  } else {
+    await page.getByTestId("new-game").click();
+  }
+  // The reset is delivered over the websocket; wait for the fresh game to land.
+  await expect.poll(() => currentRound(page), { timeout: 15_000 }).toBeLessThanOrEqual(2);
+}
 
 test.describe("table view", () => {
-  test("renders the action board, round track and four farms", async ({ page }) => {
+  test("renders the action board and four farms", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".round-pip")).toHaveCount(14);
-    expect(await page.locator(".space").count()).toBeGreaterThanOrEqual(14);
-    await expect(page.locator(".player-panel")).toHaveCount(4);
-    await expect(page.locator(".farm")).toHaveCount(4);
-    await expect(page.locator(".event-log li").first()).toBeVisible();
+    await expect(page.getByTestId("action-board")).toBeVisible();
+    expect(await page.getByTestId("action-space").count()).toBeGreaterThanOrEqual(14);
+    await expect(page.getByTestId("mini-farm")).toHaveCount(4);
+    await expect(page.getByTestId("round-indicator")).toBeVisible();
   });
 
-  test("autopilot turns advance the game", async ({ page }) => {
+  test("scripted turns advance the game", async ({ page }) => {
     await page.goto("/");
-    const currentRound = page.locator(".round-pip.current");
-    await expect(currentRound).toHaveCount(1);
-    const before = Number(await currentRound.textContent());
+    await resetGame(page);
+    const before = await currentRound(page);
     await expect
-      .poll(async () => Number(await currentRound.textContent()), { timeout: 45_000 })
+      .poll(() => currentRound(page), { timeout: 45_000 })
       .toBeGreaterThan(before);
   });
 });
 
 test.describe("seat view", () => {
-  test("shows the player's hand and compact opponents", async ({ page }) => {
+  test("shows the player's hand", async ({ page }) => {
     await page.goto("/player/2");
-    await expect(page.locator(".hand-footer h3")).toHaveText("Your hand");
-    expect(await page.locator(".hand-footer .game-card").count()).toBeGreaterThan(0);
-    await expect(page.locator(".player-panel.me")).toHaveCount(1);
+    // Fresh deal so the hand is full rather than spent late-game.
+    await resetGame(page);
+    const hand = page.getByTestId("your-hand");
+    await expect(hand).toBeVisible();
+    await expect(hand.getByRole("heading", { name: "Your hand" })).toBeVisible();
+    expect(await hand.locator(".game-card").count()).toBeGreaterThan(0);
   });
 });
 
 test.describe("human control", () => {
-  test("a human can take over a seat and place a worker", async ({ page }) => {
+  test("a human can claim a seat and place a worker", async ({ page }) => {
     await page.goto("/player/0");
-    // Restart so the game cannot finish under us mid-test.
-    await page.locator("button", { hasText: "new game" }).click();
-    await page
-      .locator(".player-panel.me select.controller-select")
-      .selectOption("human");
-    await expect(page.locator(".your-turn-banner")).toBeVisible({ timeout: 30_000 });
-    // Pick the first open simple space (gold-outlined). Resource takes apply
-    // immediately; parameterized spaces open a dialog — choose Forest-like
-    // spaces by id to keep this deterministic.
+    // Fresh game so it cannot finish under us mid-test.
+    await resetGame(page);
+
+    // Flip autopilot off → seat 0 (Anna) is now driven by the human.
+    const toggle = page.getByTestId("autopilot-toggle");
+    await expect(toggle).toHaveAttribute("data-on", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("data-on", "false");
+
+    // The game halts on Anna's turn and the open spaces become clickable.
+    await expect(page.getByTestId("turn-chip")).toHaveAttribute("data-myturn", "true", {
+      timeout: 30_000,
+    });
+
+    // Place a worker on the first open "simple" resource space — these take
+    // effect immediately, unlike build/sow/improvement spaces which open a
+    // parameter dialog.
     const simpleIds = [
       "forest",
       "clay_pit",
@@ -49,40 +79,32 @@ test.describe("human control", () => {
       "fishing",
       "day_laborer",
       "grain_seeds",
+      "copse",
+      "grove",
+      "hollow",
     ];
-    let clicked = false;
+    let placedId: string | null = null;
     for (const id of simpleIds) {
-      const button = page.locator(`.space.clickable:has-text("${idToTitle(id)}")`);
-      if ((await button.count()) > 0) {
-        await button.first().click();
-        clicked = true;
+      const open = page.locator(`[data-space-id="${id}"][data-clickable="true"]`);
+      if ((await open.count()) > 0) {
+        await open.first().click();
+        placedId = id;
         break;
       }
     }
-    expect(clicked).toBe(true);
-    // Our worker disc appears on the chosen space and the banner goes away
-    // while autopilots take their turns.
-    await expect(page.locator(".space .worker").first()).toBeVisible({ timeout: 10_000 });
-    // Hand the seat back to the autopilot so the server can finish the game.
-    await page
-      .locator(".player-panel.me select.controller-select")
-      .selectOption("scripted");
+    expect(placedId).not.toBeNull();
+
+    // Anna's worker now occupies the chosen space. Seat 0 still has a second
+    // worker to place, so the game stays halted on Anna and the space cannot
+    // clear under us before we assert.
+    await expect(page.locator(`[data-space-id="${placedId}"]`)).toHaveAttribute(
+      "data-occupant",
+      "Anna",
+    );
+
+    // Hand the seat back to autopilot (scripted brain) so the shared server keeps
+    // advancing. The model dropdown is never disabled, unlike the toggle, which
+    // is disabled while off when no Bedrock models were discovered.
+    await page.getByLabel("autopilot model").selectOption("scripted");
   });
 });
-
-function idToTitle(id: string): string {
-  switch (id) {
-    case "forest":
-      return "Forest";
-    case "clay_pit":
-      return "Clay Pit";
-    case "reed_bank":
-      return "Reed Bank";
-    case "fishing":
-      return "Fishing";
-    case "day_laborer":
-      return "Day Laborer";
-    default:
-      return "Grain Seeds";
-  }
-}

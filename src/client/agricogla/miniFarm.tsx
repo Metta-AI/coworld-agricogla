@@ -59,6 +59,8 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
   const newborn = player.family.filter((m) => m.bornRound === state.round).length;
   return (
     <div
+      data-testid="mini-farm"
+      data-player={player.name}
       style={{
         display: "flex",
         flexDirection: "column",

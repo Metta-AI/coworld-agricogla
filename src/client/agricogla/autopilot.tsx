@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ActPromptWire, BEDROCK_MODELS } from "../../shared/protocol";
+import { ActPromptWire, BedrockModel } from "../../shared/protocol";
 import { C, F } from "./theme";
 
-/** Seat "brains": the scripted baseline plus every selectable Bedrock model. */
-const BRAINS = [{ id: "scripted", label: "Scripted" }, ...BEDROCK_MODELS];
+const SCRIPTED: BedrockModel = { id: "scripted", label: "Scripted" };
 
 export interface AutopilotProps {
   on: boolean;
@@ -13,6 +12,8 @@ export interface AutopilotProps {
   guidance: string;
   /** Current brain id: "scripted" or a Bedrock model id. */
   brain: string;
+  /** Bedrock models discovered invokable at startup; the only model choices. */
+  models: BedrockModel[];
   onToggle: () => void;
   onGuidance: (text: string) => void;
   onSetBrain: (brain: string) => void;
@@ -27,12 +28,24 @@ export function Autopilot({
   finished,
   guidance,
   brain,
+  models,
   onToggle,
   onGuidance,
   onSetBrain,
   prompts,
 }: AutopilotProps) {
   const [draft, setDraft] = useState(guidance);
+  // Seat "brains": scripted baseline plus the models the server found usable.
+  const brains: BedrockModel[] = [SCRIPTED, ...models];
+  // If autopilot is actively running on a model that's no longer offered, keep
+  // it visible (flagged) so the control reflects reality instead of going blank.
+  if (on && brain !== "scripted" && !brains.some((b) => b.id === brain)) {
+    brains.push({ id: brain, label: `${brain} (unavailable)` });
+  }
+  // The dropdown can only show an option it actually has; fall back to scripted.
+  const selectValue = brains.some((b) => b.id === brain) ? brain : "scripted";
+  // With no usable model, autopilot can't run — only scripted is on offer.
+  const noModels = models.length === 0;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
   // Adopt server-sent guidance unless the user is mid-edit.
@@ -53,7 +66,9 @@ export function Autopilot({
   let statusText: string;
   let statusColor: string;
   if (!on) {
-    statusText = "Off — you place workers manually.";
+    statusText = noModels
+      ? "Off — no autopilot models available (Bedrock unreachable)."
+      : "Off — you place workers manually.";
     statusColor = C.muted;
   } else if (thinking) {
     statusText = "● Thinking — querying the model for this move…";
@@ -89,7 +104,7 @@ export function Autopilot({
           Autopilot
         </span>
         <select
-          value={brain}
+          value={selectValue}
           onChange={(e) => onSetBrain(e.target.value)}
           aria-label="autopilot model"
           title="Brain that drives this seat (scripted baseline or a model)"
@@ -105,7 +120,7 @@ export function Autopilot({
             cursor: "pointer",
           }}
         >
-          {BRAINS.map((m) => (
+          {brains.map((m) => (
             <option key={m.id} value={m.id} style={{ fontFamily: F.mono, background: C.field, color: C.ink }}>
               {m.label}
             </option>
@@ -114,7 +129,11 @@ export function Autopilot({
         <span style={{ flex: 1 }} />
         <button
           onClick={onToggle}
+          disabled={noModels && !on}
           aria-label="toggle autopilot"
+          data-testid="autopilot-toggle"
+          data-on={on ? "true" : "false"}
+          title={noModels && !on ? "No autopilot models available" : "Toggle autopilot"}
           style={{
             width: 42,
             height: 23,
@@ -122,7 +141,8 @@ export function Autopilot({
             border: `1px solid ${on ? C.ember : "#2c3548"}`,
             background: on ? "rgba(255,160,21,0.22)" : C.field,
             position: "relative",
-            cursor: "pointer",
+            cursor: noModels && !on ? "not-allowed" : "pointer",
+            opacity: noModels && !on ? 0.5 : 1,
             padding: 0,
             flex: "none",
           }}

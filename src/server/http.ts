@@ -1,6 +1,6 @@
 import express, { Express } from "express";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { GameRunner } from "./game-runner";
 import { redactState } from "./redact";
 import { RuleError } from "../shared/engine/apply";
@@ -47,6 +47,17 @@ export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOp
   app.get("/api/status", (_req, res) => {
     const s = runner.status();
     res.json({ started: s.started, players: s.roster.length, maxPlayers: s.maxPlayers });
+  });
+
+  // Per-deploy identity, written by scripts/deploy-prod.sh into the app root.
+  // The deploy script polls this for the deployId to prove a rollout end-to-end.
+  app.get("/version", (_req, res) => {
+    const versionFile = join(dirname(distDir), ".deploy-version.json");
+    if (existsSync(versionFile)) {
+      res.type("application/json").send(readFileSync(versionFile, "utf8"));
+    } else {
+      res.json({ deployId: "dev" });
+    }
   });
 
   app.get("/state.json", (req, res) => {

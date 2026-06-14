@@ -1,7 +1,8 @@
 import { Tool } from "@aws-sdk/client-bedrock-runtime";
 import { Agent, AgentView, ActPromptEntry } from "../types";
-import { BedrockToolUseClient, ToolUseClient } from "./tool-client";
+import { BedrockToolUseClient, ConverseUsage, ToolUseClient } from "./tool-client";
 import { renderFeedingPrompt, renderPlacementPrompt, SYSTEM_PROMPT } from "./render";
+import { Capabilities, NO_CAPABILITIES, capabilitySuffix } from "./prompt";
 import { fallbackPlacement } from "../scripted";
 import { applyFeeding, applyPlacement, computeAutoFeed } from "../../shared/engine/apply";
 import {
@@ -103,11 +104,50 @@ const FEEDING_TOOL: Tool = {
   },
 };
 
+/** Add the optional `diary`/`say` fields to a tool's input schema when the
+ *  matching capability is enabled, so the model can write memory / talk in the
+ *  same tool call as its move. */
+function withCapabilityFields(tool: Tool, cap: Capabilities): Tool {
+  if (!cap.memory && !cap.chat) return tool;
+  const spec = tool.toolSpec!;
+  // inputSchema.json is an open document type; clone its properties shallowly.
+  const json = (spec.inputSchema as unknown as { json: { properties: Record<string, unknown> } })
+    .json;
+  const properties = { ...json.properties };
+  if (cap.memory) {
+    properties.diary = {
+      type: "string",
+      description: "optional: a short note to save in your private diary for future turns",
+    };
+  }
+  if (cap.chat) {
+    properties.say = {
+      type: "string",
+      description: "optional: a short public message to the other players",
+    };
+  }
+  return {
+    toolSpec: {
+      ...spec,
+      inputSchema: { json: { ...json, properties } } as unknown as typeof spec.inputSchema,
+    },
+  };
+}
+
 export interface LlmAgentOpts {
   client?: ToolUseClient;
   maxAttempts?: number;
   /** Bedrock model id; overrides the env/default in BedrockToolUseClient. */
   model?: string;
+  /** System prompt override; defaults to the shipped SYSTEM_PROMPT. Lets the
+   *  experiment harness seat each player with a different policy prompt. */
+  system?: string;
+  /** Optional diary/chat capabilities for this seat (default: none). */
+  capabilities?: Capabilities;
+  /** Post a table-talk message from this seat (chat capability). */
+  onChat?: (to: number | null, text: string, round: number) => void;
+  /** Per-decision token usage (incl. cache hits) for cost accounting. */
+  onUsage?: (usage: ConverseUsage) => void;
   onActPrompt?: (entry: ActPromptEntry) => void;
 }
 
@@ -125,18 +165,28 @@ function extractText(content: { text?: string }[]): string {
     .join("\n");
 }
 
-/** Strip the free-text `thoughts` field before schema validation. */
-function withoutThoughts(input: unknown): unknown {
-  if (input && typeof input === "object" && "thoughts" in input) {
-    const { thoughts: _thoughts, ...rest } = input as Record<string, unknown>;
+/** Strip the free-text meta fields (thoughts/diary/say) before schema
+ *  validation; they are routed separately, not part of the move. */
+function withoutMeta(input: unknown): unknown {
+  if (input && typeof input === "object") {
+    const { thoughts: _t, diary: _d, say: _s, ...rest } = input as Record<string, unknown>;
     return rest;
   }
   return input;
 }
 
+/** Keep the diary bounded so the per-turn prompt does not grow without limit. */
+const MEMORY_CAP = 16;
+
 export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
   const client = opts.client ?? new BedrockToolUseClient({ model: opts.model });
   const maxAttempts = opts.maxAttempts ?? 3;
+  const capabilities = opts.capabilities ?? NO_CAPABILITIES;
+  const system = (opts.system ?? SYSTEM_PROMPT) + capabilitySuffix(capabilities);
+  const placementTool = withCapabilityFields(PLACEMENT_TOOL, capabilities);
+  const feedingTool = withCapabilityFields(FEEDING_TOOL, capabilities);
+  /** This seat's diary, persisted across the game (memory capability). */
+  const memory: string[] = [];
 
   async function decide<T>(
     view: AgentView,
@@ -154,11 +204,13 @@ export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
       let content;
       try {
         const result = await client.converse({
-          system: SYSTEM_PROMPT,
+          system,
           messages: [{ role: "user", content: [{ text: userText }] }],
           tools: [tool],
+          cache: true,
         });
         content = result.content;
+        if (result.usage) opts.onUsage?.(result.usage);
       } catch (err) {
         transcript.push(`bedrock error: ${String(err)}`);
         continue;
@@ -173,13 +225,23 @@ export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
       }
       transcript.push(`tool input: ${JSON.stringify(input)}`);
       try {
-        const decision = parse(withoutThoughts(input));
+        const decision = parse(withoutMeta(input));
         validate(decision);
+        // The move is legal: commit any diary note and outgoing message.
+        const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+        if (capabilities.memory && typeof raw.diary === "string" && raw.diary.trim()) {
+          memory.push(`r${view.state.round}: ${raw.diary.trim()}`);
+          if (memory.length > MEMORY_CAP) memory.splice(0, memory.length - MEMORY_CAP);
+        }
+        if (capabilities.chat && typeof raw.say === "string" && raw.say.trim()) {
+          opts.onChat?.(null, raw.say.trim(), view.state.round);
+        }
         opts.onActPrompt?.({
           playerIdx: view.playerIdx,
           round: view.state.round,
           phase,
           content: transcript.join("\n\n"),
+          fellBack: false,
         });
         return decision;
       } catch (err) {
@@ -195,6 +257,7 @@ export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
       round: view.state.round,
       phase,
       content: transcript.join("\n\n"),
+      fellBack: true,
     });
     return decision;
   }
@@ -203,11 +266,12 @@ export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
     id,
     kind: "llm",
     async decidePlacement(view: AgentView): Promise<Placement> {
+      view.memory = capabilities.memory ? memory : undefined;
       return decide(
         view,
         "work",
         renderPlacementPrompt(view),
-        PLACEMENT_TOOL,
+        placementTool,
         "submit_placement",
         (input) => placementSchema.parse(input),
         (placement) => {
@@ -218,11 +282,12 @@ export function llmAgent(id: string, opts: LlmAgentOpts = {}): Agent {
       );
     },
     async decideFeeding(view: AgentView): Promise<FeedDecision> {
+      view.memory = capabilities.memory ? memory : undefined;
       return decide(
         view,
         "feeding",
         renderFeedingPrompt(view),
-        FEEDING_TOOL,
+        feedingTool,
         "submit_feeding",
         (input) => feedDecisionSchema.parse(input),
         (decision) => {
