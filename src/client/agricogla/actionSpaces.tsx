@@ -53,7 +53,7 @@ export function ActionSpaces({ state, options, clickable, onPick }: ActionSpaces
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+      <div data-testid="action-board" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
         {state.actionSpaces.map((space) => {
           const def = spaceDef(space.id, state.numPlayers);
           const taken = space.occupiedBy !== null;
@@ -65,6 +65,10 @@ export function ActionSpaces({ state, options, clickable, onPick }: ActionSpaces
           return (
             <button
               key={space.id}
+              data-testid="action-space"
+              data-space-id={space.id}
+              data-clickable={canClick ? "true" : "false"}
+              data-occupant={occupant?.name ?? ""}
               onClick={canClick ? () => onPick(space.id) : undefined}
               title={opt?.reason ?? def.summary}
               style={{

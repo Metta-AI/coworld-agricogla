@@ -82,6 +82,8 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
   const tiles = tilesFor(player);
   return (
     <div
+      data-testid="mini-farm"
+      data-player={player.name}
       style={{
         display: "flex",
         flexDirection: "column",
