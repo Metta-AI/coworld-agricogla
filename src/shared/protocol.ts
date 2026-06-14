@@ -83,6 +83,7 @@ export interface ChatMessage {
 
 export type ServerMessage =
   | { type: "state"; state: GameState | null; handSizes: HandSizes[] }
+  | { type: "seat"; playerIdx: number | null }
   | { type: "status"; status: ServerStatus }
   | { type: "actPrompt"; entry: ActPromptWire }
   | { type: "chat"; message: ChatMessage }
@@ -134,6 +135,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),
   z.object({ type: z.literal("addBot") }),
+  z.object({ type: z.literal("removeSeat"), playerIdx: z.number().int().min(0).max(3) }),
   z.object({
     type: z.literal("reset"),
     seed: z.number().int().optional(),

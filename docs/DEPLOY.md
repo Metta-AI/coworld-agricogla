@@ -42,7 +42,7 @@ Notes:
 | | value |
 |---|---|
 | Box | EC2 `i-0b9ff9416716820ac` (Amazon Linux 2023, t3.small, us-east-1), tagged `Name=polis`. AWS account `815935788409`, local profile `cogora`. |
-| Service | `agricogla.service` runs `node /opt/agricogla/app/dist-server/cli-serve.js --port 8789 --agents scripted,scripted,scripted,scripted` as the `agricogla` user. App at `/opt/agricogla/app`, prior releases under `/opt/agricogla/releases`. |
+| Service | `agricogla.service` runs `node /opt/agricogla/app/dist-server/cli-serve.js --port 8789` as the `agricogla` user — no agent flags, so it boots an **empty lobby** (visitors join at `/join` or Add Bot, then Start). App at `/opt/agricogla/app`, prior releases under `/opt/agricogla/releases`. |
 | Port | app `127.0.0.1:8789`; tunnel metrics `127.0.0.1:2002` (polis uses 8788/2001). |
 | Tunnel | Cloudflare Tunnel `agricogla` (`e9ab85ed-960b-4910-992f-aab34c7bc103`, `config_src=local`) as `cloudflared-agricogla.service`. Config `/etc/cloudflared/agricogla.yml`, token `/etc/cloudflared/agricogla.env`. |
 | DNS | proxied CNAME `agricogla.dbloom.in → e9ab85ed-960b-4910-992f-aab34c7bc103.cfargotunnel.com` in the `dbloom.in` zone. |
@@ -84,7 +84,7 @@ headers). Account `0abc983728c4e6eab6f27f9d0c9fe23a`, `dbloom.in` zone
    - `/etc/systemd/system/agricogla.service` — `User=agricogla`,
      `WorkingDirectory=/opt/agricogla/app`, `Environment=NODE_ENV=production`
      `AWS_REGION=us-east-1` `AGRICOGLA_BEDROCK_REGION=us-east-1`,
-     `ExecStart=/usr/local/bin/node /opt/agricogla/app/dist-server/cli-serve.js --port 8789 --agents scripted,scripted,scripted,scripted`,
+     `ExecStart=/usr/local/bin/node /opt/agricogla/app/dist-server/cli-serve.js --port 8789`,
      `Restart=always`.
    - `/etc/systemd/system/cloudflared-agricogla.service` — `EnvironmentFile=/etc/cloudflared/agricogla.env`,
      `ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel --config /etc/cloudflared/agricogla.yml --metrics 127.0.0.1:2002 --loglevel info run e9ab85ed-960b-4910-992f-aab34c7bc103`,
@@ -92,10 +92,17 @@ headers). Account `0abc983728c4e6eab6f27f9d0c9fe23a`, `dbloom.in` zone
    - `systemctl daemon-reload && systemctl enable --now agricogla.service cloudflared-agricogla.service`
 4. Then `npm run deploy:prod` ships the app code.
 
-## Changing the agents
+## Lobby / agents
 
-The four seats default to `scripted` (free, self-running demo). To switch to the
-Bedrock LLM autopilots, the instance role needs `bedrock:InvokeModel` and the
-unit's `ExecStart` needs `--agents llm,llm,llm,llm` (edit the unit on the box,
-`daemon-reload`, restart). Seats are also switchable live per-panel in the UI.
+With no agent flags the box boots an **empty lobby**: visitors open `/join` to
+take a seat (or **Add Bot** in the lobby), then **Start**. To instead pre-seed
+the table at boot, add flags to the unit's `ExecStart` (edit on the box,
+`daemon-reload`, restart):
+
+- `--cogs N` — N LLM autopilot bots (needs `bedrock:InvokeModel` on the instance role).
+- `--agents scripted,scripted,scripted,scripted` — a fixed roster (the old self-running demo).
+- `--start` — begin immediately instead of waiting in the lobby.
+
+Seats are also switchable live per-panel in the UI, and bots/humans can be
+removed from the lobby (removing a human returns them to `/join`).
 ```

@@ -140,6 +140,20 @@ export class GameRunner {
     return this.seat(`Bot ${n}`, "llm");
   }
 
+  /** Remove a lobby seat (bot or human). Throws once play has started.
+   *  Seats after it shift down by one — the caller re-seats affected clients. */
+  removeSeat(idx: number): void {
+    if (this.#started) throw new RuleError("the game has already started");
+    if (idx < 0 || idx >= this.#names.length) throw new RuleError(`no seat ${idx}`);
+    this.#names.splice(idx, 1);
+    this.#controllers.splice(idx, 1);
+    this.#guidance.splice(idx, 1);
+    this.#models.splice(idx, 1);
+    this.#agents.clear(); // agent cache is keyed by seat index, now shifted
+    this.#state = this.#names.length >= 1 ? this.#build(this.#opts.seed) : null;
+    this.#opts.onUpdate?.();
+  }
+
   /** Publish the Bedrock models discovered invokable at startup; broadcasts so
    *  connected clients update their autopilot picker. */
   setAvailableModels(models: BedrockModel[]): void {

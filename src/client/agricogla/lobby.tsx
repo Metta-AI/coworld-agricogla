@@ -62,7 +62,17 @@ function Wordmark() {
 }
 
 /** Pre-game lobby shown on the table view until play starts. */
-export function Lobby({ status, onAddBot, onStart }: { status: ServerStatus; onAddBot: () => void; onStart: () => void }) {
+export function Lobby({
+  status,
+  onAddBot,
+  onStart,
+  onRemove,
+}: {
+  status: ServerStatus;
+  onAddBot: () => void;
+  onStart: () => void;
+  onRemove: (idx: number) => void;
+}) {
   const roster = status.roster;
   const full = roster.length >= status.maxPlayers;
   const joinUrl = new URL("join", document.baseURI).href;
@@ -90,6 +100,14 @@ export function Lobby({ status, onAddBot, onStart }: { status: ServerStatus; onA
               <span style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.1em", color: r.controller === "human" ? C.cyan : C.ember }}>
                 {r.controller === "human" ? "HUMAN" : "BOT"}
               </span>
+              <button
+                onClick={() => onRemove(i)}
+                title="Remove from lobby"
+                aria-label={`remove ${r.name}`}
+                style={{ flex: "none", width: 20, height: 20, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                ×
+              </button>
             </div>
           ))}
           {roster.length === 0 && (

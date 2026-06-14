@@ -127,7 +127,14 @@ function GameApp() {
   }
   // Pre-game lobby: collect players (cogs + joins) until someone hits Start.
   if (!status.started) {
-    return <Lobby status={status} onAddBot={() => socket.addBot()} onStart={() => socket.resume()} />;
+    return (
+      <Lobby
+        status={status}
+        onAddBot={() => socket.addBot()}
+        onStart={() => socket.resume()}
+        onRemove={(i) => socket.removeSeat(i)}
+      />
+    );
   }
   if (!state) {
     return (

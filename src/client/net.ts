@@ -66,6 +66,16 @@ export class GameSocket {
           this.feed.handSizes = message.handSizes;
           this.feed.lastError = null;
           break;
+        case "seat":
+          // Re-seated by the lobby: null = removed (back to /join), else our
+          // seat shifted after a removal.
+          if (message.playerIdx === null) {
+            window.location.href = new URL("join", document.baseURI).href;
+            return;
+          }
+          this.#playerIdx = message.playerIdx;
+          history.replaceState(null, "", new URL(`player/${message.playerIdx}`, document.baseURI).pathname);
+          break;
         case "status":
           this.feed.status = message.status;
           break;
@@ -144,6 +154,11 @@ export class GameSocket {
   /** Lobby: add an autopilot (LLM) bot seat. */
   addBot(): void {
     this.#send({ type: "addBot" });
+  }
+
+  /** Lobby: remove a seat (bot or human). A removed human is sent to /join. */
+  removeSeat(playerIdx: number): void {
+    this.#send({ type: "removeSeat", playerIdx });
   }
 
   reset(seed?: number, players?: number): void {

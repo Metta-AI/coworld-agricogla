@@ -208,6 +208,23 @@ export class SocketHub {
         case "addBot":
           this.#runner.addBot();
           break;
+        case "removeSeat": {
+          const idx = message.playerIdx;
+          this.#runner.removeSeat(idx); // throws if started / bad index
+          // Re-seat affected clients: the removed seat is kicked to spectator
+          // (its client returns to /join), later seats shift down by one.
+          for (const c of this.#clients) {
+            if (c.playerIdx === idx) {
+              c.playerIdx = null;
+              this.#send(c, { type: "seat", playerIdx: null });
+            } else if (c.playerIdx !== null && c.playerIdx > idx) {
+              c.playerIdx -= 1;
+              this.#send(c, { type: "seat", playerIdx: c.playerIdx });
+            }
+          }
+          this.broadcastState();
+          break;
+        }
         case "reset":
           this.#runner.reset(message.seed);
           break;
