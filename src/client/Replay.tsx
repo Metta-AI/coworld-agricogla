@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { applyFeeding, applyPlacement } from "../shared/engine/apply";
 import { newGame } from "../shared/engine/game";
 import { feedDecisionSchema, placementSchema } from "../shared/engine/placements";
 import { GameState } from "../shared/engine/types";
 import { ReplayPayload } from "../shared/coworld-protocol";
-import { HandSizes } from "../shared/protocol";
-import { GlobalView } from "./agricogla/views";
+import { GameHeader, HeaderTab } from "./agricogla/header";
+import { GlobalView, FeedView, PlayerView } from "./agricogla/views";
+import { Scrubber } from "./agricogla/scrubber";
 import { ScoreBoard } from "./agricogla/scoreboard";
-import { C, F, nextHarvest } from "./agricogla/theme";
+import { C, F } from "./agricogla/theme";
 
 /** Re-simulate the whole episode; the engine is deterministic given the
  *  seed, so the recorded decisions reproduce every intermediate state. */
@@ -28,19 +29,14 @@ function buildStates(payload: ReplayPayload): GameState[] {
   return states;
 }
 
-/** Replays are public: hide every hand, report card backs only. */
-function hideHands(state: GameState): { state: GameState; handSizes: HandSizes[] } {
+/** Replays are public: hide every hand so card faces never leak. */
+function hideHands(state: GameState): GameState {
   const clone = structuredClone(state);
-  const handSizes: HandSizes[] = [];
   for (const player of clone.players) {
-    handSizes.push({
-      occupations: player.handOccupations.length,
-      minors: player.handMinors.length,
-    });
     player.handOccupations = [];
     player.handMinors = [];
   }
-  return { state: clone, handSizes };
+  return clone;
 }
 
 const SPEEDS = [
@@ -50,56 +46,148 @@ const SPEEDS = [
   { label: "4×", ms: 200 },
 ] as const;
 
+const appStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  padding: "12px 16px 8px",
+  overflow: "hidden",
+  background:
+    "radial-gradient(1200px 700px at 50% -10%, rgba(16,22,34,0.82) 0%, rgba(7,9,13,0.92) 55%), url(art/texture-stage.png) center/cover no-repeat, #07090d",
+  color: C.ink,
+  fontFamily: F.body,
+  fontSize: 14,
+};
+
 function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   const states = useMemo(() => buildStates(payload), [payload]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speedMs, setSpeedMs] = useState<number>(800);
+  const [view, setView] = useState<string>("global");
+  // Final-scoring modal can be dismissed to keep scrubbing, then reopened.
+  const [scoreClosed, setScoreClosed] = useState(false);
 
-  // Autoplay; when the recorded end is reached, loop back to move 0.
+  const last = states.length - 1;
+
+  // Autoplay advances one recorded move at a time, then stops at the end.
   useEffect(() => {
     if (!playing) return;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % states.length), speedMs);
+    const timer = setInterval(() => setIndex((i) => Math.min(last, i + 1)), speedMs);
     return () => clearInterval(timer);
-  }, [playing, speedMs, states.length]);
+  }, [playing, speedMs, last]);
+  useEffect(() => {
+    if (index >= last) setPlaying(false);
+  }, [index, last]);
 
-  const atEnd = index === states.length - 1;
-  const { state } = useMemo(() => hideHands(states[index]!), [states, index]);
-  const nh = nextHarvest(state.round);
+  const atEnd = index >= last;
+  const state = useMemo(() => hideHands(states[index]!), [states, index]);
+  const finished = state.phase === "finished";
+
+  // One scrubber tick per round; each maps to the first move of that round.
+  const frames = useMemo(() => {
+    const seen = new Set<number>();
+    const arr: { round: number; index: number }[] = [];
+    states.forEach((s, i) => {
+      if (!seen.has(s.round)) {
+        seen.add(s.round);
+        arr.push({ round: s.round, index: i });
+      }
+    });
+    return arr;
+  }, [states]);
+
+  let selRound = 0;
+  for (let i = 0; i < frames.length; i++) {
+    if (frames[i]!.index <= index) selRound = i;
+    else break;
+  }
+
+  const seekRound = (r: number) => {
+    setPlaying(false);
+    const clamped = Math.max(0, Math.min(r, frames.length - 1));
+    setIndex(frames[clamped]!.index);
+  };
+
+  const tabs: HeaderTab[] = [
+    { id: "global", label: "GLOBAL" },
+    { id: "feed", label: "FEED" },
+    ...state.players.map((p) => ({ id: `p${p.idx}`, label: p.name.toUpperCase(), color: p.color as string | undefined, ai: true })),
+  ];
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", gap: 10, padding: "12px 16px 8px", overflow: "hidden", background: "radial-gradient(1200px 700px at 50% -10%, #101622 0%, #07090d 55%)", color: C.ink, fontFamily: F.body, fontSize: 14 }}>
-      <header style={{ flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "2px 4px 10px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 9, flex: "none" }}>
-          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", color: C.ember, textShadow: "0 0 14px rgba(255,160,21,0.45)" }}>⌂</span>
-          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 27, letterSpacing: "0.05em", textTransform: "uppercase", background: "linear-gradient(90deg, #ffffff, #ffa015)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>Agricogla</span>
-          <span style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase" }}>replay</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>Round</span>
-          <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{state.round}/14</span>
-        </div>
-        <span style={{ fontFamily: F.mono, fontSize: 11, padding: "5px 10px", borderRadius: 999, border: "1px solid #233140", color: C.cyan, whiteSpace: "nowrap" }}>
-          {state.phase === "finished" ? "GAME OVER" : nh ? `harvest after R${nh}` : ""}
-        </span>
-        <span style={{ flex: 1 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "none" }}>
-          <span style={{ fontFamily: F.mono, fontSize: 11, color: C.inkDim }}>move {index} / {states.length - 1}</span>
-          <button className="mini" onClick={() => setPlaying((p) => !p)}>{playing ? "⏸ pause" : "▶ play"}</button>
-          <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.max(0, i - 1)); }}>⏮ back</button>
-          <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.min(states.length - 1, i + 1)); }}>⏭ step</button>
-          <select value={speedMs} onChange={(e) => setSpeedMs(Number(e.target.value))} title="playback speed">
-            {SPEEDS.map((s) => (
-              <option key={s.ms} value={s.ms}>{s.label}</option>
-            ))}
-          </select>
-          <input type="range" min={0} max={states.length - 1} value={index} onChange={(e) => { setPlaying(false); setIndex(Number(e.target.value)); }} style={{ width: 160 }} />
-        </div>
-      </header>
+    <div style={appStyle}>
+      <GameHeader
+        view={view}
+        onSelect={setView}
+        tabs={tabs}
+        round={state.round}
+        finished={finished}
+        rightSlot={
+          <>
+            <span style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase" }}>replay</span>
+            <span style={{ fontFamily: F.mono, fontSize: 11, color: C.inkDim, whiteSpace: "nowrap" }}>move {index} / {last}</span>
+            <button className="mini" onClick={() => (atEnd ? (setIndex(0), setPlaying(true)) : setPlaying((p) => !p))}>
+              {atEnd ? "↻ replay" : playing ? "⏸ pause" : "▶ play"}
+            </button>
+            <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.max(0, i - 1)); }}>⏮ back</button>
+            <button className="mini" onClick={() => { setPlaying(false); setIndex((i) => Math.min(last, i + 1)); }}>⏭ step</button>
+            <select value={speedMs} onChange={(e) => setSpeedMs(Number(e.target.value))} title="playback speed">
+              {SPEEDS.map((s) => (
+                <option key={s.ms} value={s.ms}>{s.label}</option>
+              ))}
+            </select>
+          </>
+        }
+      />
 
-      <GlobalView state={state} messages={[]} log={state.log} mySeat={null} />
+      {view === "global" && <GlobalView state={state} messages={[]} log={state.log} mySeat={null} />}
+      {view === "feed" && <FeedView state={state} messages={[]} log={state.log} mySeat={null} onSend={() => {}} />}
+      {view.startsWith("p") && (
+        <PlayerView
+          viewState={state}
+          liveState={state}
+          viewSeat={Number(view.slice(1))}
+          mySeat={null}
+          finished={finished}
+          reviewing={true}
+          options={null}
+          messages={[]}
+          onPick={() => {}}
+          onSend={() => {}}
+          autoOn={false}
+          thinking={false}
+          guidance=""
+          brain=""
+          models={[]}
+          prompts={[]}
+          onToggleAuto={() => {}}
+          onGuidance={() => {}}
+          onSetBrain={() => {}}
+        />
+      )}
 
-      {atEnd && state.phase === "finished" && <ScoreBoard state={state} onNewGame={() => setIndex(0)} />}
+      {frames.length > 1 && (
+        <Scrubber
+          frames={frames}
+          sel={selRound}
+          atLive={atEnd}
+          displayRound={state.round}
+          msgCountByRound={{}}
+          onSeek={seekRound}
+          onLive={() => setIndex(last)}
+        />
+      )}
+
+      {atEnd && finished && !scoreClosed && (
+        <ScoreBoard
+          state={state}
+          onNewGame={() => { setScoreClosed(false); setIndex(0); setPlaying(true); }}
+          onClose={() => setScoreClosed(true)}
+        />
+      )}
     </div>
   );
 }
