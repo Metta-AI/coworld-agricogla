@@ -32,6 +32,7 @@ const promptPath = a.promptPath ?? 'src/agents/llm/prompt.ts'
 const renderPath = a.renderPath ?? 'src/agents/llm/render.ts'
 const maxCandidates = a.maxCandidates ?? 4
 const parentVariant = a.parentVariant ?? 'baseline'
+const priorLessons = a.priorLessons ?? ''
 
 if (transcriptPaths.length === 0) {
   log('No transcriptPaths provided; nothing to analyze.')
@@ -54,6 +55,11 @@ The autopilot also has two optional capabilities a variant can switch on:
 - memory: a private diary the model writes via a "diary" tool field and reads back each turn (good for multi-turn plan coherence).
 - chat: table-talk; the model posts via a "say" field and sees other cogs' messages (good for racing contested spaces / negotiation).
 Transcripts include a "TABLE TALK" section and "YOUR DIARY" blocks when these were on. If a weakness is about incoherent multi-turn plans or ignoring opponents, consider proposing a candidate that enables a capability (and a strategy nudge to use it) instead of just rewording a block.
+
+WHAT WE ALREADY LEARNED FROM PRIOR A/B ROUNDS (do not waste a candidate re-testing a known loser):
+${priorLessons || '(none provided)'}
+
+THE OVERRIDING PRINCIPLE from prior rounds: CONSTRUCTIVE changes win; RESTRICTIVE changes lose. A candidate that hands the model a clearer plan, accurate facts, or a useful computed signal tends to help. A candidate that FORBIDS or GATES an action ("never take X", "don't grow until Y", "fill every cell") tends to BACKFIRE, because it steals placements from high-value plays (family growth, card play) — even when the forbidden thing really was a mistake. Prefer additive/informational/sequencing fixes. Do NOT re-propose: gating family growth, hoarding a food buffer, "fill the board" pushes, or "never take animals" bans — all measured as losses. Only propose candidates testable via the prompt blocks (rules/strategy/output), the per-seat guidance, or the memory/chat capabilities (state-rendering code changes are not A/B-testable here, so fold any rendering idea into a strategy instruction that tells the model to COMPUTE the signal from what it already sees).
 `
 
 // ---- Phase 1: Analyze (one lens per game-facet) -----------------------------
