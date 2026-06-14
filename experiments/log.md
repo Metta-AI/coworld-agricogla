@@ -24,3 +24,7 @@ above the contamination threshold are excluded.
 | 2026-06-13 13:24 | cand-secure-food-early-with-buffer-1 | baseline | sonnet-4-6 | 4/4 | -6.6 | 13% | 0.250 | no significant difference (delta -6.6 pts/seat, p=0.250) |
 | 2026-06-13 16:57 | cand-major-ability-cheatsheet | baseline | sonnet-4-6 | 8/8 | +3.4 | 50% | 0.453 | no significant difference (delta 3.4 pts/seat, p=0.453) |
 | 2026-06-13 17:32 | cand-fill-additive | baseline | sonnet-4-6 | 8/8 | -3.9 | 31% | 0.016 | candidate WORSE by 3.9 pts/seat (sign-test p=0.016) |
+| 2026-06-14 05:45 | baseline | baseline | sonnet-4-6 | 4/4 | -5.5 | 50% | 1.000 | no significant difference (delta -5.5 pts/seat, p=1.000) |
+| 2026-06-14 06:33 | cand-raw-animals-zero-food | baseline | sonnet-4-6 | 8/8 | -5.8 | 25% | 0.289 | no significant difference (delta -5.8 pts/seat, p=0.289) |
+| 2026-06-14 07:08 | cand-food-engine-sequencing | baseline | sonnet-4-6 | 8/8 | +12.4 | 75% | 0.070 | candidate BETTER by 12.4 pts/seat (sign-test p=0.070) |
+| 2026-06-14 07:46 | cand-food-engine-sequencing | baseline | sonnet-4-6 | 8/8 | +6.7 | 63% | 0.727 | no significant difference (delta 6.7 pts/seat, p=0.727) |
