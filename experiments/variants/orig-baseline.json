@@ -1,0 +1,10 @@
+{
+  "name": "orig-baseline",
+  "parent": "baseline",
+  "notes": "The ORIGINAL pre-optimization prompt (before any A/B-promoted change): original 7-bullet rules (no majors cheatsheet) + the one-line strategy. Used to measure the cumulative improvement of the whole loop.",
+  "blocks": {
+    "rules": "Key rules:\n- 14 rounds in 6 stages; harvests after rounds 4, 7, 9, 11, 13, 14.\n- Each round you place your family members one at a time on UNOCCUPIED action spaces.\n- At each harvest: sown fields yield 1 crop each, then you must pay 2 food per family member (newborns 1), then animals breed (+1 per type with 2+ if there is room). Missing food = begging cards at -3 points each.\n- Grain/vegetables convert to 1 food raw anytime; animals need a cooking improvement (e.g. Fireplace).\n- Rooms cost 5 of your house material + 2 reed each. Renovation upgrades wood->clay->stone. Family growth needs more rooms than family members (except the stage-5 urgent space).\n- Fences enclose pastures (1 wood each, 15 max). Pasture capacity: 2 animals per space, doubled per stable inside. One animal type per pasture; your house also holds 1 pet.\n- Scoring rewards balance: fields, pastures, grain, vegetables, sheep, boar, cattle, big family, renovated rooms; -1 per unused space; cards give points too.",
+    "strategy": "Strategy basics: feed the family first (begging is terrible), grow the family as early as housing allows (each member = 3 points + an extra action), don't leave whole categories at -1, and convert spare resources into points late."
+  },
+  "guidance": ""
+}

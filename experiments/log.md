@@ -32,3 +32,4 @@ above the contamination threshold are excluded.
 | 2026-06-14 09:13 | cand-fence-copy-suggested-plans | baseline | sonnet-4-6 | 8/8 | -1.3 | 38% | 1.000 | no significant difference (delta -1.3 pts/seat, p=1.000) |
 | 2026-06-14 09:48 | cand-board-coverage-midgame-1 | baseline | sonnet-4-6 | 8/8 | +3.8 | 38% | 0.289 | no significant difference (delta 3.8 pts/seat, p=0.289) |
 | 2026-06-14 10:28 | cand-grow-and-cover | baseline | sonnet-4-6 | 8/8 | +8.4 | 88% | 0.289 | no significant difference (delta 8.4 pts/seat, p=0.289) |
+| 2026-06-14 11:09 | baseline | orig-baseline | sonnet-4-6 | 8/8 | +13.6 | 75% | 0.070 | candidate BETTER by 13.6 pts/seat (sign-test p=0.070) |
