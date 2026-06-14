@@ -159,6 +159,7 @@ export async function startCoworldGame(opts: CoworldGameOpts): Promise<CoworldGa
         numPlayers,
         playerNames,
         actions,
+        chat: [...runner.chatLog()],
         results,
       };
       await writeData(opts.saveReplayUri, JSON.stringify(replay), {
