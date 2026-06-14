@@ -106,7 +106,28 @@ export class GameRunner {
    *  connected clients update their autopilot picker. */
   setAvailableModels(models: BedrockModel[]): void {
     this.#availableModels = [...models];
+    this.#reconcileModels();
     this.#opts.onUpdate?.();
+  }
+
+  /** A seat's default brain: the configured default if this account can invoke
+   *  it, else the first discovered model, else the static default (used only
+   *  before discovery has run). */
+  #defaultModel(): string {
+    if (this.#availableModels.some((m) => m.id === DEFAULT_BEDROCK_MODEL)) {
+      return DEFAULT_BEDROCK_MODEL;
+    }
+    return this.#availableModels[0]?.id ?? DEFAULT_BEDROCK_MODEL;
+  }
+
+  /** Snap any seat pointed at a non-invokable model back to an available one,
+   *  so toggling autopilot (which uses the seat's stored model, not the picker)
+   *  never selects a model that 404s and silently degrades to scripted. No-op
+   *  until discovery has found at least one model. */
+  #reconcileModels(): void {
+    if (this.#availableModels.length === 0) return;
+    const usable = new Set(this.#availableModels.map((m) => m.id));
+    this.#models = this.#models.map((m) => (usable.has(m) ? m : this.#defaultModel()));
   }
 
   setGuidance(playerIdx: number, text: string): void {
@@ -213,6 +234,7 @@ export class GameRunner {
     }
     this.#guidance = Array.from({ length: players }, (_, i) => this.#guidance[i] ?? "");
     this.#models = Array.from({ length: players }, (_, i) => this.#models[i] ?? DEFAULT_BEDROCK_MODEL);
+    this.#reconcileModels();
     this.#chat = [];
     this.#chatSeq = 0;
     this.#thinking = null;
