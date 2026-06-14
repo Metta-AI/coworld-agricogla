@@ -11,7 +11,13 @@ import {
 import { newGame } from "../shared/engine/game";
 import { GameState } from "../shared/engine/types";
 import { FeedDecision, Placement } from "../shared/engine/placements";
-import { ChatMessage, Controller, DEFAULT_BEDROCK_MODEL, ServerStatus } from "../shared/protocol";
+import {
+  BedrockModel,
+  ChatMessage,
+  Controller,
+  DEFAULT_BEDROCK_MODEL,
+  ServerStatus,
+} from "../shared/protocol";
 import { dmReply, roundQuip } from "./chatter";
 
 export interface GameRunnerOpts {
@@ -47,6 +53,7 @@ export class GameRunner {
   #controllers: Controller[];
   #guidance: string[];
   #models: string[];
+  #availableModels: BedrockModel[] = [];
   #chat: ChatMessage[] = [];
   #chatSeq = 0;
   #thinking: number | null = null;
@@ -86,12 +93,20 @@ export class GameRunner {
       controllers: [...this.#controllers],
       guidance: [...this.#guidance],
       models: [...this.#models],
+      availableModels: [...this.#availableModels],
       thinking: this.#thinking,
       paused: this.#paused,
       finished: this.#state.phase === "finished",
       clients: this.clientCount,
       readOnly: false, // SocketHub overrides in tournament mode.
     };
+  }
+
+  /** Publish the Bedrock models discovered invokable at startup; broadcasts so
+   *  connected clients update their autopilot picker. */
+  setAvailableModels(models: BedrockModel[]): void {
+    this.#availableModels = [...models];
+    this.#opts.onUpdate?.();
   }
 
   setGuidance(playerIdx: number, text: string): void {
