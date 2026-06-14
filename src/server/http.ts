@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { GameRunner } from "./game-runner";
 import { redactState } from "./redact";
+import { RuleError } from "../shared/engine/apply";
 
 export interface CreateAppOpts {
   /** Tournament mode: /state.json never reveals a hand (hands are only
@@ -12,6 +13,7 @@ export interface CreateAppOpts {
 
 export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOpts = {}): Express {
   const app = express();
+  app.use(express.json());
 
   app.get("/health", (_req, res) => {
     res.type("text/plain").send("ok");
@@ -22,11 +24,41 @@ export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOp
     res.json({ ok: true });
   });
 
+  // Lobby: a human claims a seat by name. Refused when full / already started.
+  app.post("/api/join", (req, res) => {
+    if (opts.spectatorOnly) {
+      res.status(403).json({ error: "this table is read-only" });
+      return;
+    }
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ error: "name required" });
+      return;
+    }
+    try {
+      const playerIdx = runner.seat(name, "human");
+      res.json({ playerIdx });
+    } catch (err) {
+      res.status(409).json({ error: err instanceof RuleError ? err.message : "could not join" });
+    }
+  });
+
+  // Lightweight lobby status for the standalone /join page.
+  app.get("/api/status", (_req, res) => {
+    const s = runner.status();
+    res.json({ started: s.started, players: s.roster.length, maxPlayers: s.maxPlayers });
+  });
+
   app.get("/state.json", (req, res) => {
+    const state = runner.state;
+    if (!state) {
+      res.json({ state: null, handSizes: [], status: runner.status() });
+      return;
+    }
     const playerIdx =
       !opts.spectatorOnly && req.query.player !== undefined ? Number(req.query.player) : null;
     res.json({
-      ...redactState(runner.state, playerIdx, { maskFuture: opts.spectatorOnly }),
+      ...redactState(state, playerIdx, { maskFuture: opts.spectatorOnly }),
       status: runner.status(),
     });
   });
@@ -37,6 +69,7 @@ export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOp
     // browser-client contract (player seat, live global view, replay).
     for (const route of [
       "/",
+      "/join",
       "/player/:idx",
       "/score",
       "/client/player",

@@ -6,56 +6,75 @@ import { Controller } from "./shared/protocol";
 interface ServeOptions {
   port: number;
   seed: number;
-  players: number;
+  /** Boot roster (the lobby seeds): explicit --agents, else --cogs bots, else empty. */
   controllers: Controller[];
+  names?: string[];
   pace: number;
+  /** Begin play immediately. Without it the server boots into the lobby (paused). */
+  start: boolean;
 }
 
 export function parseServeArgs(argv: string[]): ServeOptions {
   // Preview/launch tooling assigns a port via the PORT env var.
   const envPort = Number(process.env.PORT);
-  const opts: ServeOptions = {
-    port: Number.isFinite(envPort) && envPort > 0 ? envPort : 8484,
-    seed: 1,
-    players: 4,
-    controllers: [],
-    pace: 800,
-  };
+  let port = Number.isFinite(envPort) && envPort > 0 ? envPort : 8484;
+  let seed = 1;
+  let pace = 800;
+  let start = false;
+  let agents: Controller[] | null = null;
+  let players: number | null = null;
+  let cogs = 0;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     switch (arg) {
       case "--port":
-        opts.port = Number(argv[++i]);
+        port = Number(argv[++i]);
         break;
       case "--seed":
-        opts.seed = Number(argv[++i]);
+        seed = Number(argv[++i]);
         break;
       case "--players":
-        opts.players = Number(argv[++i]);
+        players = Number(argv[++i]);
         break;
       case "--agents":
-        opts.controllers = String(argv[++i]).split(",") as Controller[];
+        agents = String(argv[++i]).split(",") as Controller[];
         break;
       case "--pace":
-        opts.pace = Number(argv[++i]);
+        pace = Number(argv[++i]);
+        break;
+      case "--start":
+        start = true;
+        break;
+      case "--cogs":
+        cogs = Number(argv[++i]);
+        if (!Number.isInteger(cogs) || cogs < 0 || cogs > 4) {
+          throw new Error("--cogs must be an integer 0..4");
+        }
         break;
       default:
         throw new Error(`unknown argument: ${arg}`);
     }
   }
-  if (opts.controllers.length > 0 && opts.controllers.length !== opts.players) {
-    // Allow --agents to imply the player count.
-    opts.players = opts.controllers.length;
+  // Boot roster: explicit --agents wins; else N llm cogs; else legacy --players
+  // scripted bots; else an empty lobby (Add Bot / join to fill it).
+  let controllers: Controller[];
+  let names: string[] | undefined;
+  if (agents && agents.length) {
+    controllers = agents;
+  } else if (cogs > 0) {
+    controllers = Array(cogs).fill("llm") as Controller[];
+    names = Array.from({ length: cogs }, (_, i) => `Bot ${i + 1}`);
+  } else if (players && players > 0) {
+    controllers = Array(players).fill("scripted") as Controller[];
+  } else {
+    controllers = [];
   }
-  if (opts.controllers.length === 0) {
-    opts.controllers = Array(opts.players).fill("scripted") as Controller[];
-  }
-  for (const c of opts.controllers) {
+  for (const c of controllers) {
     if (!["human", "scripted", "llm"].includes(c)) {
       throw new Error(`unknown controller: ${c} (use human|scripted|llm)`);
     }
   }
-  return opts;
+  return { port, seed, controllers, names, pace, start };
 }
 
 async function main(): Promise<void> {
@@ -65,17 +84,26 @@ async function main(): Promise<void> {
   const handle = await startServer({
     port: opts.port,
     seed: opts.seed,
-    numPlayers: opts.players,
+    numPlayers: opts.controllers.length,
     controllers: opts.controllers,
+    names: opts.names,
     paceMs: opts.pace,
+    startPaused: !opts.start,
+    maxPlayers: 4,
     distDir,
   });
   console.log(`Agricogla server on http://localhost:${handle.port}`);
   console.log(`  table view:   http://localhost:${handle.port}/`);
-  for (let i = 0; i < opts.players; i++) {
+  console.log(`  join page:    http://localhost:${handle.port}/join`);
+  for (let i = 0; i < opts.controllers.length; i++) {
     console.log(`  player ${i}:    http://localhost:${handle.port}/player/${i} (${opts.controllers[i]})`);
   }
   console.log(`  websocket:    ws://localhost:${handle.port}/ws`);
+  console.log(
+    opts.start
+      ? `  status:       playing (--start)`
+      : `  status:       lobby (${opts.controllers.length}/4) — Add Bot / share /join, then Start (or pass --start)`,
+  );
 }
 
 const isDirectRun =

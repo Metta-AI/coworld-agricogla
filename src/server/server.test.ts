@@ -15,11 +15,11 @@ describe("redactState", () => {
       controllers: ["human", "human"],
       paceMs: 0,
     });
-    const { state, handSizes } = redactState(runner.state, 0);
+    const { state, handSizes } = redactState(runner.state!, 0);
     expect(state.players[0]!.handOccupations).toHaveLength(7);
     expect(state.players[1]!.handOccupations).toHaveLength(0);
     expect(handSizes[1]).toEqual({ occupations: 7, minors: 7 });
-    const spectator = redactState(runner.state, null);
+    const spectator = redactState(runner.state!, null);
     expect(spectator.state.players[0]!.handOccupations).toHaveLength(0);
   });
 });
@@ -33,7 +33,7 @@ describe("GameRunner", () => {
       paceMs: 0,
     });
     await runner.tick();
-    expect(runner.state.phase).toBe("finished");
+    expect(runner.state!.phase).toBe("finished");
     expect(runner.status().finished).toBe(true);
   });
 
@@ -49,15 +49,15 @@ describe("GameRunner", () => {
     expect(runner.pendingPlayer()).not.toBeNull();
     const humanTurns: number[] = [];
     let guard = 0;
-    while (runner.state.phase !== "finished" && guard++ < 200) {
+    while (runner.state!.phase !== "finished" && guard++ < 200) {
       const pending = runner.pendingPlayer();
       if (pending === null) break;
       expect(runner.status().controllers[pending]).toBe("human");
-      if (runner.state.phase === "work") {
-        humanTurns.push(runner.state.round);
+      if (runner.state!.phase === "work") {
+        humanTurns.push(runner.state!.round);
         // Human always fishes or takes wood — first available simple space.
         const free = ["fishing", "forest", "clay_pit", "reed_bank", "day_laborer", "grain_seeds"].find(
-          (id) => runner.state.actionSpaces.find((s) => s.id === id)!.occupiedBy === null,
+          (id) => runner.state!.actionSpaces.find((s) => s.id === id)!.occupiedBy === null,
         )!;
         runner.humanPlace(pending, { action: free } as never);
       } else {
@@ -66,7 +66,7 @@ describe("GameRunner", () => {
       await runner.tick();
       await sleep(1);
     }
-    expect(runner.state.phase).toBe("finished");
+    expect(runner.state!.phase).toBe("finished");
     expect(humanTurns.length).toBeGreaterThan(20);
   });
 
@@ -91,11 +91,11 @@ describe("GameRunner", () => {
     });
     void runner.tick();
     await sleep(40); // mid-game
-    expect(runner.state.phase).not.toBe("finished");
+    expect(runner.state!.phase).not.toBe("finished");
     runner.reset(99);
-    expect(runner.state.seed).toBe(99);
-    for (let i = 0; i < 2000 && runner.state.phase !== "finished"; i++) await sleep(10);
-    expect(runner.state.phase).toBe("finished");
+    expect(runner.state!.seed).toBe(99);
+    for (let i = 0; i < 2000 && runner.state!.phase !== "finished"; i++) await sleep(10);
+    expect(runner.state!.phase).toBe("finished");
   });
 
   it("controller can be switched to autopilot mid-game", async () => {
@@ -106,13 +106,13 @@ describe("GameRunner", () => {
       paceMs: 0,
     });
     await runner.tick();
-    expect(runner.state.phase).not.toBe("finished");
+    expect(runner.state!.phase).not.toBe("finished");
     runner.setController(0, "scripted");
     await sleep(50);
     await runner.tick();
     // Give chained ticks a moment to drain.
-    for (let i = 0; i < 100 && runner.state.phase !== "finished"; i++) await sleep(10);
-    expect(runner.state.phase).toBe("finished");
+    for (let i = 0; i < 100 && runner.state!.phase !== "finished"; i++) await sleep(10);
+    expect(runner.state!.phase).toBe("finished");
   });
 });
 
@@ -148,7 +148,7 @@ describe("server + websocket", () => {
     expect(snapshot).toBeTruthy();
     if (snapshot?.type === "state") {
       // Spectator sees no hands.
-      expect(snapshot.state.players[0]!.handOccupations).toHaveLength(0);
+      expect(snapshot.state!.players[0]!.handOccupations).toHaveLength(0);
     }
 
     // Seat as player 0 and act.
@@ -156,7 +156,7 @@ describe("server + websocket", () => {
     await sleep(100);
     const seated = [...messages].reverse().find((m) => m.type === "state");
     if (seated?.type === "state") {
-      expect(seated.state.players[0]!.handOccupations.length).toBe(7);
+      expect(seated.state!.players[0]!.handOccupations.length).toBe(7);
     }
 
     const current = handle.runner.pendingPlayer()!;
@@ -165,7 +165,7 @@ describe("server + websocket", () => {
         JSON.stringify({ type: "place", playerIdx: 0, placement: { action: "fishing" } }),
       );
       await sleep(150);
-      expect(handle.runner.state.actionSpaces.find((s) => s.id === "fishing")!.occupiedBy).toBe(0);
+      expect(handle.runner.state!.actionSpaces.find((s) => s.id === "fishing")!.occupiedBy).toBe(0);
     }
 
     // Illegal action gets an error back.
@@ -189,8 +189,8 @@ describe("server + websocket", () => {
     const ws = new WebSocket(`ws://localhost:${handle.port}/ws`);
     await new Promise<void>((resolve) => ws.on("open", resolve));
     ws.send(JSON.stringify({ type: "setController", playerIdx: 0, controller: "scripted" }));
-    for (let i = 0; i < 200 && handle.runner.state.phase !== "finished"; i++) await sleep(10);
-    expect(handle.runner.state.phase).toBe("finished");
+    for (let i = 0; i < 200 && handle.runner.state!.phase !== "finished"; i++) await sleep(10);
+    expect(handle.runner.state!.phase).toBe("finished");
     ws.close();
   });
 });

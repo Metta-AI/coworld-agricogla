@@ -1,30 +1,8 @@
-import { computePastures } from "../../shared/engine/farmyard";
 import { scorePlayer } from "../../shared/engine/scoring";
 import { GameState, Good, PlayerState } from "../../shared/engine/types";
 import { GOOD_LABELS } from "../icons";
+import { Farm } from "../Farm";
 import { C, F, RES_COLOR } from "./theme";
-
-const ROOM_TILE: Record<string, string> = {
-  wood: "art/tile-room-wood.png",
-  clay: "art/tile-room-clay.png",
-  stone: "art/tile-room-stone.png",
-};
-
-interface Tile {
-  src: string;
-  pasture: boolean;
-  stable: boolean;
-}
-
-/** Same tile textures as the full Farm board, just rendered small. */
-function tilesFor(player: PlayerState): Tile[] {
-  const { pastureCells } = computePastures(player.spaces, player.fences);
-  return player.spaces.map((sp, i) => {
-    if (sp.kind === "room") return { src: ROOM_TILE[player.houseMaterial]!, pasture: false, stable: false };
-    if (sp.kind === "field") return { src: "art/tile-field.png", pasture: false, stable: false };
-    return { src: "art/tile-grass.png", pasture: pastureCells.has(i), stable: !!sp.stable };
-  });
-}
 
 function Chip({ good, val, color }: { good: Good; val: number; color: string }) {
   return (
@@ -79,7 +57,6 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
   const score = scorePlayer(state, player).total;
   const isTurn = state.phase === "work" && state.currentPlayer === player.idx;
   const newborn = player.family.filter((m) => m.bornRound === state.round).length;
-  const tiles = tilesFor(player);
   return (
     <div
       style={{
@@ -106,32 +83,7 @@ export function MiniFarm({ state, player }: { state: GameState; player: PlayerSt
         <span style={{ flex: 1 }} />
         <span style={{ fontFamily: F.mono, fontSize: 12, color: C.ember }}>{score} pts</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3 }}>
-        {tiles.map((t, i) => (
-          <span
-            key={i}
-            style={{
-              position: "relative",
-              aspectRatio: "1",
-              borderRadius: 3,
-              backgroundImage: `url(${t.src})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              border: t.pasture ? "1px dashed #3f7d52" : "1px solid rgba(255,255,255,0.07)",
-              overflow: "hidden",
-            }}
-          >
-            {t.pasture && <span style={{ position: "absolute", inset: 0, background: "rgba(63,125,82,0.22)" }} />}
-            {t.stable && (
-              <img
-                src="art/token-stable.png"
-                alt=""
-                style={{ position: "absolute", inset: "14%", width: "72%", height: "72%", objectFit: "contain" }}
-              />
-            )}
-          </span>
-        ))}
-      </div>
+      <Farm player={player} fit />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         <Chip good="wood" val={player.resources.wood} color={RES_COLOR.wood} />
         <Chip good="clay" val={player.resources.clay} color={RES_COLOR.clay} />

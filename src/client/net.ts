@@ -141,6 +141,11 @@ export class GameSocket {
     this.#send({ type: "resume" });
   }
 
+  /** Lobby: add an autopilot (LLM) bot seat. */
+  addBot(): void {
+    this.#send({ type: "addBot" });
+  }
+
   reset(seed?: number, players?: number): void {
     this.#send({ type: "reset", seed, players });
   }
