@@ -61,12 +61,14 @@ const appStyle: CSSProperties = {
   fontSize: 14,
 };
 
-function ReplayViewer({ payload }: { payload: ReplayPayload }) {
+export function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   const states = useMemo(() => buildStates(payload), [payload]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speedMs, setSpeedMs] = useState<number>(800);
-  const [view, setView] = useState<string>("global");
+  // Open on the negotiation feed (the table-talk + action log), like the live
+  // game's most-watched view; tabs switch to GLOBAL or a per-player farm.
+  const [view, setView] = useState<string>("feed");
   // Final-scoring modal can be dismissed to keep scrubbing, then reopened.
   const [scoreClosed, setScoreClosed] = useState(false);
 
@@ -85,6 +87,12 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
   const atEnd = index >= last;
   const state = useMemo(() => hideHands(states[index]!), [states, index]);
   const finished = state.phase === "finished";
+
+  // Reveal table-talk in step with the scrubber (messages are tagged by round).
+  const visibleChat = useMemo(
+    () => (payload.chat ?? []).filter((m) => m.round <= state.round),
+    [payload.chat, state.round],
+  );
 
   // One scrubber tick per round; each maps to the first move of that round.
   const frames = useMemo(() => {
@@ -143,8 +151,8 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
         }
       />
 
-      {view === "global" && <GlobalView state={state} messages={[]} log={state.log} mySeat={null} />}
-      {view === "feed" && <FeedView state={state} messages={[]} log={state.log} mySeat={null} onSend={() => {}} />}
+      {view === "global" && <GlobalView state={state} messages={visibleChat} log={state.log} mySeat={null} />}
+      {view === "feed" && <FeedView state={state} messages={visibleChat} log={state.log} mySeat={null} onSend={() => {}} />}
       {view.startsWith("p") && (
         <PlayerView
           viewState={state}
@@ -154,7 +162,10 @@ function ReplayViewer({ payload }: { payload: ReplayPayload }) {
           finished={finished}
           reviewing={true}
           options={null}
-          messages={[]}
+          messages={visibleChat.filter((m) => {
+            const vs = Number(view.slice(1));
+            return m.to === null || m.from === vs || m.to === vs;
+          })}
           onPick={() => {}}
           onSend={() => {}}
           autoOn={false}
