@@ -283,7 +283,7 @@ function GameApp() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "none" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
             <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>Round</span>
-            <span style={{ fontFamily: F.display, fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{state.round}/14</span>
+            <span data-testid="round-indicator" data-round={state.round} style={{ fontFamily: F.display, fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{state.round}/14</span>
           </div>
           <div style={{ display: "flex", gap: 3 }}>
             {STAGE_CHIPS.map(([label, st]) => (
@@ -330,6 +330,8 @@ function GameApp() {
           )}
           <button
             onClick={onTurnChip}
+            data-testid="turn-chip"
+            data-myturn={myTurn ? "true" : "false"}
             style={{
               fontFamily: mono,
               fontSize: 11,
@@ -425,7 +427,7 @@ function GameApp() {
             <button onClick={() => (status.paused ? socket.resume() : socket.pause())} style={footBtn}>
               {status.paused ? "▶ resume" : "⏸ pause"}
             </button>
-            <button onClick={() => { setScoreClosed(false); socket.reset(); }} title="new game, next seed" style={footBtn}>
+            <button data-testid="new-game" onClick={() => { setScoreClosed(false); socket.reset(); }} title="new game, next seed" style={footBtn}>
               ↻ new game
             </button>
           </>

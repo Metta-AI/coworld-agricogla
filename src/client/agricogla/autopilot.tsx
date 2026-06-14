@@ -131,6 +131,8 @@ export function Autopilot({
           onClick={onToggle}
           disabled={noModels && !on}
           aria-label="toggle autopilot"
+          data-testid="autopilot-toggle"
+          data-on={on ? "true" : "false"}
           title={noModels && !on ? "No autopilot models available" : "Toggle autopilot"}
           style={{
             width: 42,

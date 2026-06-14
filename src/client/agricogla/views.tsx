@@ -286,7 +286,7 @@ export function PlayerView(props: PlayerViewProps) {
         </div>
 
         {isMine && (vp.handOccupations.length > 0 || vp.handMinors.length > 0) && (
-          <div style={{ ...panel, padding: "11px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div data-testid="your-hand" style={{ ...panel, padding: "11px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
             <h2 style={sectionHeading}>Your hand</h2>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {vp.handOccupations.map((id) => (
