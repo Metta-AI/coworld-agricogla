@@ -19,21 +19,21 @@ const payload: ReplayPayload = {
 };
 
 describe("replay viewer", () => {
-  it("defaults to the feed view and shows recorded table-talk", () => {
+  it("defaults to the feed view and reveals recorded table-talk", () => {
     const html = renderToStaticMarkup(<ReplayViewer payload={payload} />);
-    // Feed view is the default (its heading, not the table view's columns).
-    expect(html).toContain("Negotiation feed");
+    // Opens on the feed view (its heading renders only in that view).
+    expect(html).toContain("Feed — actions");
     // Recorded chat from round 1 is revealed at the start.
     expect(html).toContain("Leave me the forest");
     expect(html).toContain("Only if you spare the clay");
-    // Both view tabs are present so the user can switch to the table.
-    expect(html).toContain("feed");
-    expect(html).toContain("table");
+    // The shared game shell exposes GLOBAL + FEED tabs (and per-player farms).
+    expect(html).toContain("GLOBAL");
+    expect(html).toContain("FEED");
   });
 
-  it("renders an empty feed gracefully for replays without recorded chat", () => {
+  it("renders gracefully for replays without recorded chat", () => {
     const html = renderToStaticMarkup(<ReplayViewer payload={{ ...payload, chat: undefined }} />);
-    expect(html).toContain("Negotiation feed");
-    expect(html).toContain("No table talk yet.");
+    expect(html).toContain("Feed — actions");
+    expect(html).not.toContain("Leave me the forest");
   });
 });

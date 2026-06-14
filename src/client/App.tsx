@@ -7,11 +7,12 @@ import { Controller, DEFAULT_BEDROCK_MODEL } from "../shared/protocol";
 import { FeedDialog, PlacementDialog } from "./Dialogs";
 import { GameSocket } from "./net";
 import { ReplayApp } from "./Replay";
+import { GameHeader } from "./agricogla/header";
 import { GlobalView, FeedView, PlayerView } from "./agricogla/views";
 import { Lobby, JoinPage } from "./agricogla/lobby";
 import { Scrubber } from "./agricogla/scrubber";
 import { ScoreBoard } from "./agricogla/scoreboard";
-import { C, F, nextHarvest, STAGE_CHIPS, stageOf } from "./agricogla/theme";
+import { C, F } from "./agricogla/theme";
 
 function routeSeat(): { playerIdx: number | null; token?: string } {
   // Match by path suffix: behind the Observatory hosted proxy the pathname is
@@ -41,19 +42,6 @@ interface Frame {
 }
 
 const mono = F.mono;
-
-/** Small robot glyph marking a seat that the autopilot model is playing. */
-function RobotIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
-      <circle cx="12" cy="3.5" r="1" fill="currentColor" stroke="none" />
-      <path d="M12 4.5V8" />
-      <rect x="5" y="8" width="14" height="11" rx="3" />
-      <circle cx="9.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
-      <circle cx="14.5" cy="13.5" r="1.25" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 function GameApp() {
   const [, setTick] = useState(0);
@@ -219,8 +207,6 @@ function GameApp() {
       ai: status.controllers[p.idx] !== "human" && status.controllers[p.idx] !== "remote",
     })),
   ];
-  const stageNow = stageOf(state.round);
-  const nh = nextHarvest(state.round);
   const curName = state.players[state.currentPlayer]?.name ?? "—";
 
   const turnChip = (() => {
@@ -255,125 +241,62 @@ function GameApp() {
   return (
     <div style={appStyle}>
       {/* ===== header ===== */}
-      <header style={{ flex: "none", display: "flex", alignItems: "center", gap: 16, padding: "2px 4px 10px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 9, flex: "none" }}>
-          <img src="art/logo-wordmark.png" alt="Agricogla" style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
-        </div>
-
-        <nav style={{ display: "flex", gap: 4, flex: "none" }}>
-          {tabs.map((t) => {
-            const active = view === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setView(t.id)}
-                onContextMenu={
-                  t.id.startsWith("p") && !status.readOnly
-                    ? (e) => {
-                        e.preventDefault();
-                        setSeatMenu({ seat: Number(t.id.slice(1)), x: e.clientX, y: e.clientY });
-                      }
-                    : undefined
-                }
-                title={t.id.startsWith("p") && !status.readOnly ? "right-click to control / observe this seat" : undefined}
+      <GameHeader
+        view={view}
+        onSelect={setView}
+        tabs={tabs}
+        round={state.round}
+        finished={finished}
+        onTabContextMenu={
+          !status.readOnly ? (seat, e) => setSeatMenu({ seat, x: e.clientX, y: e.clientY }) : undefined
+        }
+        rightSlot={
+          <>
+            {autoOn && (
+              <span
                 style={{
-                  background: active ? "#1c2230" : "transparent",
-                  border: `1px solid ${active ? t.color ?? C.ember : C.border}`,
-                  color: active ? C.ink : "#8b96a8",
-                  borderRadius: 6,
-                  padding: "5px 11px",
                   fontFamily: mono,
                   fontSize: 10,
                   fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
+                  letterSpacing: "0.07em",
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  whiteSpace: "nowrap",
+                  color: thinking ? C.emberInk : C.emberSoft,
+                  background: thinking ? C.ember : "rgba(255,160,21,0.12)",
+                  border: `1px solid ${thinking ? C.ember : "#6a5524"}`,
+                  animation: thinking ? "pulseGlow 1.2s ease-in-out infinite" : "none",
                 }}
               >
-                {t.ai && <RobotIcon />}
-                {t.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div style={{ flex: 1 }} />
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "none" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>Round</span>
-            <span data-testid="round-indicator" data-round={state.round} style={{ fontFamily: F.display, fontWeight: 800, fontSize: 28, lineHeight: 1 }}>{state.round}/14</span>
-          </div>
-          <div style={{ display: "flex", gap: 3 }}>
-            {STAGE_CHIPS.map(([label, st]) => (
-              <span
-                key={st}
-                style={{
-                  fontFamily: mono,
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  letterSpacing: "0.05em",
-                  padding: "3px 7px",
-                  borderRadius: 5,
-                  background: st === stageNow ? C.ember : st < stageNow ? C.field : C.panelBot,
-                  color: st === stageNow ? C.emberInk : st < stageNow ? C.faint : C.muted,
-                  border: `1px solid ${st === stageNow ? C.ember : C.border}`,
-                  boxShadow: st === stageNow ? "0 0 10px rgba(255,160,21,0.4)" : "none",
-                }}
-              >
-                {label}
+                {thinking ? "AUTO · THINKING" : "AUTOPILOT"}
               </span>
-            ))}
-          </div>
-          <span style={{ fontFamily: mono, fontSize: 11, padding: "5px 10px", borderRadius: 999, border: "1px solid #233140", color: C.cyan, whiteSpace: "nowrap" }}>
-            {finished ? "GAME OVER" : nh ? `harvest after R${nh}` : ""}
-          </span>
-          {autoOn && (
-            <span
+            )}
+            <button
+              onClick={onTurnChip}
+              data-testid="turn-chip"
+              data-myturn={myTurn ? "true" : "false"}
               style={{
                 fontFamily: mono,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 700,
-                letterSpacing: "0.07em",
-                padding: "5px 10px",
-                borderRadius: 999,
+                letterSpacing: "0.05em",
                 whiteSpace: "nowrap",
-                color: thinking ? C.emberInk : C.emberSoft,
-                background: thinking ? C.ember : "rgba(255,160,21,0.12)",
-                border: `1px solid ${thinking ? C.ember : "#6a5524"}`,
-                animation: thinking ? "pulseGlow 1.2s ease-in-out infinite" : "none",
+                padding: "6px 13px",
+                borderRadius: 999,
+                cursor: "pointer",
+                background: turnChip.bg,
+                color: turnChip.color,
+                border: `1px solid ${turnChip.border}`,
+                animation: turnChip.pulse ? "pulseGlow 1.6s ease-in-out infinite" : "none",
+                boxShadow: turnChip.pulse ? "0 0 16px rgba(255,160,21,0.45)" : "none",
               }}
             >
-              {thinking ? "AUTO · THINKING" : "AUTOPILOT"}
-            </span>
-          )}
-          <button
-            onClick={onTurnChip}
-            data-testid="turn-chip"
-            data-myturn={myTurn ? "true" : "false"}
-            style={{
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              whiteSpace: "nowrap",
-              padding: "6px 13px",
-              borderRadius: 999,
-              cursor: "pointer",
-              background: turnChip.bg,
-              color: turnChip.color,
-              border: `1px solid ${turnChip.border}`,
-              animation: turnChip.pulse ? "pulseGlow 1.6s ease-in-out infinite" : "none",
-              boxShadow: turnChip.pulse ? "0 0 16px rgba(255,160,21,0.45)" : "none",
-            }}
-          >
-            {turnChip.text}
-          </button>
-          <span title={connected ? "connected" : "reconnecting"} style={{ width: 9, height: 9, borderRadius: "50%", background: connected ? C.live : C.beg, boxShadow: connected ? `0 0 7px ${C.live}` : "none" }} />
-        </div>
-      </header>
+              {turnChip.text}
+            </button>
+            <span title={connected ? "connected" : "reconnecting"} style={{ width: 9, height: 9, borderRadius: "50%", background: connected ? C.live : C.beg, boxShadow: connected ? `0 0 7px ${C.live}` : "none" }} />
+          </>
+        }
+      />
 
       {lastError && (
         <div onClick={() => socket.clearError()} style={{ flex: "none", background: "rgba(255,93,107,0.14)", border: "1px solid rgba(255,93,107,0.5)", color: C.beg, padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
