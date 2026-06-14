@@ -23,6 +23,15 @@
       "autoPort": true
     },
     {
+      "name": "discord-shim",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "PORT=8484 DISCORD_DEV_SHIM=1 DISCORD_CLIENT_ID=dev DISCORD_CLIENT_SECRET=dev DISCORD_PUBLIC_KEY=abababababababababababababababababababababababababababababababab AWS_PROFILE=softmax AWS_REGION=us-west-2 exec npm run serve"
+      ],
+      "port": 8484
+    },
+    {
       "name": "agricogla-coworld-live",
       "runtimeExecutable": "bash",
       "runtimeArgs": [

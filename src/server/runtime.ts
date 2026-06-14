@@ -5,6 +5,7 @@ import { SocketHub } from "./websocket";
 import { loadDiscordConfig } from "./discord/config";
 import { DiscordSeats } from "./discord/seats";
 import { mountDiscord } from "./discord/routes";
+import { realIdentity, shimIdentity } from "./discord/identity";
 
 export interface ServerHandle {
   server: Server;
@@ -35,7 +36,12 @@ export async function startServer(opts: StartServerOpts): Promise<ServerHandle> 
     seats ? { validateSeat: (idx, token) => seats.validate(idx, token) } : {},
   );
   const app = createApp(runner, opts.distDir, { discordEnabled: !!discordConfig });
-  if (seats && discordConfig) mountDiscord(app, seats, discordConfig);
+  if (seats && discordConfig) {
+    // DISCORD_DEV_SHIM swaps the real OAuth round-trip for a self-declared
+    // identity so the Activity can be driven in a plain browser. Dev only.
+    const identity = process.env.DISCORD_DEV_SHIM ? shimIdentity() : realIdentity(discordConfig);
+    mountDiscord(app, seats, discordConfig, identity);
+  }
   const server = createServer(app);
   hub.attach(server);
 

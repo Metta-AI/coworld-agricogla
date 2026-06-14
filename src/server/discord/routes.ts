@@ -1,7 +1,7 @@
 import { Express, Request } from "express";
 import { RuleError } from "../../shared/engine/apply";
 import { DiscordConfig } from "./config";
-import { exchangeCode, fetchUser } from "./oauth";
+import { DiscordIdentity } from "./identity";
 import { handleInteraction } from "./interactions";
 import { DiscordSeats } from "./seats";
 import { verifyInteractionSignature } from "./verify";
@@ -11,7 +11,12 @@ const tokenBody = (req: Request): string | undefined =>
 
 /** Mount the Discord Activity endpoints onto the existing Express app. Only
  *  called when Discord is configured; standalone servers never expose these. */
-export function mountDiscord(app: Express, seats: DiscordSeats, config: DiscordConfig): void {
+export function mountDiscord(
+  app: Express,
+  seats: DiscordSeats,
+  config: DiscordConfig,
+  identity: DiscordIdentity,
+): void {
   // The browser needs the client id to boot the Embedded App SDK; the secret
   // and public key stay server-side.
   app.get("/api/discord/config", (_req, res) => {
@@ -41,7 +46,7 @@ export function mountDiscord(app: Express, seats: DiscordSeats, config: DiscordC
       res.status(400).json({ error: "code required" });
       return;
     }
-    const accessToken = await exchangeCode(config, code);
+    const accessToken = await identity.exchange(code);
     res.json({ access_token: accessToken });
   });
 
@@ -53,7 +58,7 @@ export function mountDiscord(app: Express, seats: DiscordSeats, config: DiscordC
       res.status(400).json({ error: "access_token required" });
       return;
     }
-    const user = await fetchUser(token);
+    const user = await identity.user(token);
     try {
       const grant = seats.claim(user);
       res.json({ playerIdx: grant.playerIdx, token: grant.token });
@@ -71,7 +76,7 @@ export function mountDiscord(app: Express, seats: DiscordSeats, config: DiscordC
       res.status(400).json({ error: "access_token required" });
       return;
     }
-    await fetchUser(token);
+    await identity.user(token);
     seats.startWithBots();
     res.json({ ok: true });
   });
@@ -83,7 +88,7 @@ export function mountDiscord(app: Express, seats: DiscordSeats, config: DiscordC
       res.status(400).json({ error: "access_token required" });
       return;
     }
-    await fetchUser(token);
+    await identity.user(token);
     try {
       seats.reset();
       res.json({ ok: true });
