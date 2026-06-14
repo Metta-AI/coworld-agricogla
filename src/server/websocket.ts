@@ -29,6 +29,9 @@ export interface SocketHubOpts {
   /** When set, hello must present the matching token to claim a seat (and
    *  see that seat's hand); otherwise the client spectates. */
   seatTokens?: string[];
+  /** Dynamic seat authorization (Discord mode), checked instead of seatTokens
+   *  when present. Returns true if `token` may claim/act as `playerIdx`. */
+  validateSeat?: (playerIdx: number, token: string | undefined) => boolean;
 }
 
 export class SocketHub {
@@ -158,12 +161,7 @@ export class SocketHub {
     try {
       switch (message.type) {
         case "hello": {
-          const tokens = this.#opts.seatTokens;
-          if (
-            message.playerIdx !== null &&
-            tokens &&
-            tokens[message.playerIdx] !== message.token
-          ) {
+          if (message.playerIdx !== null && !this.#seatAuthorized(message.playerIdx, message.token)) {
             client.playerIdx = null;
             this.#sendSnapshot(client);
             this.#send(client, {
@@ -237,6 +235,16 @@ export class SocketHub {
         throw err;
       }
     }
+  }
+
+  /** May `token` claim/act as `playerIdx`? Discord mode delegates to a dynamic
+   *  validator; tournament mode checks the static token array; with neither
+   *  configured (standalone) any seat claim is allowed. */
+  #seatAuthorized(playerIdx: number, token: string | undefined): boolean {
+    if (this.#opts.validateSeat) return this.#opts.validateSeat(playerIdx, token);
+    const tokens = this.#opts.seatTokens;
+    if (tokens) return tokens[playerIdx] === token;
+    return true;
   }
 
   #requireSeat(client: ClientInfo, playerIdx: number): void {
