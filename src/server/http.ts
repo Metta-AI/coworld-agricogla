@@ -9,11 +9,28 @@ export interface CreateAppOpts {
   /** Tournament mode: /state.json never reveals a hand (hands are only
    *  visible over /ws with a valid seat token). */
   spectatorOnly?: boolean;
+  /** Discord Activity mode: allow Discord to frame the app (CSP frame-ancestors).
+   *  Mount the Discord routes separately via mountDiscord. */
+  discordEnabled?: boolean;
 }
 
 export function createApp(runner: GameRunner, distDir: string, opts: CreateAppOpts = {}): Express {
   const app = express();
-  app.use(express.json());
+  // Stash the raw body so the Discord interactions webhook can verify Discord's
+  // Ed25519 signature against the exact bytes (the parsed object is not enough).
+  app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } }));
+
+  // Discord serves the Activity inside an iframe on *.discordsays.com; allow it
+  // to frame us. Harmless when standalone, but only emitted in Discord mode.
+  if (opts.discordEnabled) {
+    app.use((_req, res, next) => {
+      res.setHeader(
+        "Content-Security-Policy",
+        "frame-ancestors https://discord.com https://*.discord.com https://*.discordsays.com",
+      );
+      next();
+    });
+  }
 
   app.get("/health", (_req, res) => {
     res.type("text/plain").send("ok");

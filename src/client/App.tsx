@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import { computeAutoFeed } from "../shared/engine/apply";
 import { legalActions, playerChoices } from "../shared/engine/legal";
 import { Placement } from "../shared/engine/placements";
@@ -13,6 +13,13 @@ import { Lobby, JoinPage } from "./agricogla/lobby";
 import { Scrubber } from "./agricogla/scrubber";
 import { ScoreBoard } from "./agricogla/scoreboard";
 import { C, F } from "./agricogla/theme";
+import {
+  claimSeat,
+  DiscordSession,
+  isDiscordActivity,
+  setupDiscord,
+  startGame,
+} from "./discord/sdk";
 
 function routeSeat(): { playerIdx: number | null; token?: string } {
   // Match by path suffix: behind the Observatory hosted proxy the pathname is
@@ -30,6 +37,7 @@ function routeSeat(): { playerIdx: number | null; token?: string } {
 }
 
 export function App() {
+  if (isDiscordActivity()) return <DiscordActivity />;
   if (location.pathname.endsWith("/client/replay")) return <ReplayApp />;
   if (location.pathname.endsWith("/join")) return <JoinPage />;
   return <GameApp />;
@@ -43,9 +51,129 @@ interface Frame {
 
 const mono = F.mono;
 
-function GameApp() {
+/** Centered panel used by the Discord handshake / seat-choice screens. */
+function ActivityShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        padding: "0 20px",
+        background:
+          "radial-gradient(1200px 700px at 50% -10%, rgba(16,22,34,0.82) 0%, rgba(7,9,13,0.92) 55%), #07090d",
+        color: C.ink,
+        fontFamily: F.body,
+        textAlign: "center",
+      }}
+    >
+      <img src="art/logo-wordmark.png" alt="Agricogla" style={{ height: 44, mixBlendMode: "lighten" }} />
+      {children}
+    </div>
+  );
+}
+
+function activityBtn(primary: boolean): CSSProperties {
+  return {
+    fontFamily: F.mono,
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    padding: "12px 18px",
+    borderRadius: 999,
+    cursor: "pointer",
+    background: primary ? C.ember : C.field,
+    color: primary ? C.emberInk : C.ink,
+    border: `1px solid ${primary ? C.ember : C.border}`,
+  };
+}
+
+/** The Discord Activity entry: runs the handshake, lets the member take a seat
+ *  or spectate, then renders the live game (GameApp) with that seat. */
+function DiscordActivity() {
+  const [session, setSession] = useState<DiscordSession | null>(null);
+  const [seat, setSeat] = useState<{ playerIdx: number | null; token?: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setupDiscord().then(setSession, (e) => setError(String(e)));
+  }, []);
+
+  if (error) {
+    return (
+      <ActivityShell>
+        <p style={{ color: C.beg, maxWidth: 420 }}>⚠ Could not connect to Discord: {error}</p>
+      </ActivityShell>
+    );
+  }
+  if (!session) {
+    return (
+      <ActivityShell>
+        <p style={{ color: C.muted }}>Connecting to Discord…</p>
+      </ActivityShell>
+    );
+  }
+  if (seat) {
+    return (
+      <GameApp
+        initialSeat={seat}
+        onStart={() => void startGame(session.accessToken)}
+        allowRemove={false}
+      />
+    );
+  }
+
+  const take = async () => {
+    setBusy(true);
+    const grant = await claimSeat(session.accessToken).catch((e) => {
+      setError(String(e));
+      return null;
+    });
+    if (grant) {
+      setSeat({ playerIdx: grant.playerIdx, token: grant.token });
+    } else if (!error) {
+      setNote("Table is full or the game already started — spectating.");
+      setSeat({ playerIdx: null });
+    }
+  };
+
+  const name = session.user.global_name || session.user.username;
+  return (
+    <ActivityShell>
+      <p style={{ fontSize: 15 }}>
+        Welcome, <strong>{name}</strong>.
+      </p>
+      {note && <p style={{ color: C.muted, maxWidth: 420 }}>{note}</p>}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button disabled={busy} onClick={() => void take()} style={activityBtn(true)}>
+          Take a seat ▶
+        </button>
+        <button disabled={busy} onClick={() => setSeat({ playerIdx: null })} style={activityBtn(false)}>
+          Spectate
+        </button>
+      </div>
+    </ActivityShell>
+  );
+}
+
+/** Discord mode injects the seat (claimed via the Activity, not the URL), an
+ *  onStart that fills empty seats with bots, and hides seat-removal (which would
+ *  drift the Discord seat→token mapping). Standalone passes none of these. */
+interface GameAppProps {
+  initialSeat?: { playerIdx: number | null; token?: string };
+  onStart?: () => void;
+  allowRemove?: boolean;
+}
+
+function GameApp({ initialSeat, onStart, allowRemove = true }: GameAppProps = {}) {
   const [, setTick] = useState(0);
-  const seat = routeSeat();
+  const seat = initialSeat ?? routeSeat();
   // Seat is URL-derived initially, but can be re-claimed live via the seat menu.
   const [mySeat, setMySeat] = useState<number | null>(seat.playerIdx);
   const socketRef = useRef<GameSocket | null>(null);
@@ -119,8 +247,8 @@ function GameApp() {
       <Lobby
         status={status}
         onAddBot={() => socket.addBot()}
-        onStart={() => socket.resume()}
-        onRemove={(i) => socket.removeSeat(i)}
+        onStart={onStart ?? (() => socket.resume())}
+        onRemove={allowRemove ? (i) => socket.removeSeat(i) : undefined}
       />
     );
   }

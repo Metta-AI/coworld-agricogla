@@ -71,7 +71,8 @@ export function Lobby({
   status: ServerStatus;
   onAddBot: () => void;
   onStart: () => void;
-  onRemove: (idx: number) => void;
+  /** Omitted (Discord mode) hides the per-seat remove button. */
+  onRemove?: (idx: number) => void;
 }) {
   const roster = status.roster;
   const full = roster.length >= status.maxPlayers;
@@ -100,14 +101,16 @@ export function Lobby({
               <span style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.1em", color: r.controller === "human" ? C.cyan : C.ember }}>
                 {r.controller === "human" ? "HUMAN" : "BOT"}
               </span>
-              <button
-                onClick={() => onRemove(i)}
-                title="Remove from lobby"
-                aria-label={`remove ${r.name}`}
-                style={{ flex: "none", width: 20, height: 20, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                ×
-              </button>
+              {onRemove && (
+                <button
+                  onClick={() => onRemove(i)}
+                  title="Remove from lobby"
+                  aria-label={`remove ${r.name}`}
+                  style={{ flex: "none", width: 20, height: 20, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  ×
+                </button>
+              )}
             </div>
           ))}
           {roster.length === 0 && (

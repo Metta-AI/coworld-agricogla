@@ -140,6 +140,27 @@ export class GameRunner {
     return this.seat(`Bot ${n}`, "llm");
   }
 
+  /** Fill every empty seat with an autopilot bot, up to the seat cap. Used when
+   *  a Discord table starts: humans keep their claimed seats, bots take the rest
+   *  so the game always plays at a full table. No-op once play has started. */
+  fillWithBots(): void {
+    if (this.#started) return;
+    while (this.#names.length < this.#maxPlayers) this.addBot();
+  }
+
+  /** Drop every seat back to an empty lobby (no roster, no game). Used to start
+   *  a fresh Discord table after a game finishes. Throws if play is underway. */
+  clearSeats(): void {
+    if (this.#started) throw new RuleError("the game has already started");
+    this.#names = [];
+    this.#controllers = [];
+    this.#guidance = [];
+    this.#models = [];
+    this.#agents.clear();
+    this.#state = null;
+    this.#opts.onUpdate?.();
+  }
+
   /** Remove a lobby seat (bot or human). Throws once play has started.
    *  Seats after it shift down by one — the caller re-seats affected clients. */
   removeSeat(idx: number): void {
