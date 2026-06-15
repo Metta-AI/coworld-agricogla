@@ -98,6 +98,29 @@ describe("GameRunner", () => {
     expect(runner.state!.phase).toBe("finished");
   });
 
+  it("new game (toLobby) returns to the lobby with the roster intact", async () => {
+    const runner = new GameRunner({
+      seed: 5,
+      numPlayers: 2,
+      controllers: ["scripted", "scripted"],
+      paceMs: 5,
+    });
+    void runner.tick();
+    await sleep(40); // mid-game
+    expect(runner.status().started).toBe(true);
+
+    runner.toLobby();
+    const status = runner.status();
+    expect(status.started).toBe(false);
+    expect(status.phase).toBe("lobby");
+    expect(status.roster.map((r) => r.controller)).toEqual(["scripted", "scripted"]);
+
+    // Bots stay idle in the lobby (paused) — no rounds advance.
+    const round = runner.state!.round;
+    await sleep(40);
+    expect(runner.state!.round).toBe(round);
+  });
+
   it("controller can be switched to autopilot mid-game", async () => {
     const runner = new GameRunner({
       seed: 5,

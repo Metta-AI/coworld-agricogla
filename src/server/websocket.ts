@@ -234,6 +234,9 @@ export class SocketHub {
         case "reset":
           this.#runner.reset(message.seed);
           break;
+        case "newGame":
+          this.#runner.toLobby();
+          break;
       }
     } catch (err) {
       if (err instanceof RuleError) {

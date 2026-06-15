@@ -323,7 +323,8 @@ export class GameRunner {
     void this.tick();
   }
 
-  /** "New game": replay with the current roster (same seats, fresh deal). */
+  /** Rematch: instantly replay with the current roster (same seats, fresh deal),
+   *  staying in play. The post-game "Play again" button. */
   reset(seed?: number): void {
     this.#generation++;
     this.#reconcileModels();
@@ -337,6 +338,23 @@ export class GameRunner {
     this.#captureFrame(); // fresh round-1 frame for the new game
     this.#opts.onUpdate?.();
     void this.tick();
+  }
+
+  /** "New game": leave the current game and return to the lobby with the roster
+   *  intact, so players can adjust seats and Start again. Stays paused (the
+   *  lobby) rather than relaunching — unlike reset's instant rematch. */
+  toLobby(): void {
+    this.#generation++; // cancel any in-flight bot tick
+    this.#reconcileModels();
+    this.#chat = [];
+    this.#chatSeq = 0;
+    this.#thinking = null;
+    this.#agents.clear();
+    this.#paused = true;
+    this.#started = false;
+    const nextSeed = this.#state ? this.#state.seed + 1 : this.#opts.seed;
+    this.#state = this.#names.length >= 1 ? this.#build(nextSeed) : null;
+    this.#opts.onUpdate?.();
   }
 
   #applyPlace(playerIdx: number, placement: Placement): void {

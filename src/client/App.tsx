@@ -538,8 +538,8 @@ function GameApp({ initialSeat, onStart, allowRemove = true, reportPresence }: G
             <button onClick={() => (status.paused ? socket.resume() : socket.pause())} style={footBtn}>
               {status.paused ? "▶ resume" : "⏸ pause"}
             </button>
-            <button data-testid="new-game" onClick={() => { setScoreClosed(false); socket.reset(); }} title="new game, next seed" style={footBtn}>
-              ↻ new game
+            <button data-testid="new-game" onClick={() => { setScoreClosed(false); socket.newGame(); }} title="new game — back to the lobby to set up a fresh table" style={footBtn}>
+              ⌂ new game
             </button>
           </>
         )}

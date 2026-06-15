@@ -37,11 +37,14 @@ export class DiscordSeats {
     return grant;
   }
 
-  /** True if `token` is the live grant for `playerIdx`. Used by the socket hub
-   *  to authorize a seated client (and, by absence, to spectate everyone else). */
+  /** Authorize a client to act as `playerIdx`. A seat claimed via the Discord
+   *  Activity is locked to its minted token; an unclaimed seat (bot or empty)
+   *  stays open to direct standalone seating (e.g. /player/N), so enabling
+   *  Discord does not disable plain browser play. */
   validate(playerIdx: number, token: string | undefined): boolean {
-    if (token === undefined) return false;
-    return this.#bySeat.get(playerIdx)?.token === token;
+    const grant = this.#bySeat.get(playerIdx);
+    if (!grant) return true; // unclaimed seat: standalone direct seating allowed
+    return grant.token === token; // Discord-claimed seat: require its token
   }
 
   /** Fill any empty seats with `llm` bots and begin play. */
