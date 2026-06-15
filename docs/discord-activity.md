@@ -134,20 +134,42 @@ the routes don't exist and standalone behaviour is identical.
   not configured.
 - True in-Discord verification needs the operator portal steps below (account-bound).
 
-## Operator setup (one-time, needs your Discord account)
+## How it was actually deployed: reusing the shared **disco** bot
 
-1. **Create the app** at <https://discord.com/developers/applications>. Copy the
-   **Application ID**, **Public Key**, and (Settings → OAuth2) the **Client Secret**.
-2. **Enable Activities**: Settings → *Activities* → *Getting Started*. Set the
-   **Default URL Mapping** root (`/`) target to `agricogla.dbloom.in`.
-3. **OAuth2 redirect**: add the Activity's redirect; scopes `identify`,
-   `rpc.activities.write`.
-4. **Interactions endpoint URL**: set it to
-   `https://agricogla.dbloom.in/api/discord/interactions` (Discord sends a signed PING
-   to validate — the server answers it).
-5. **Install / add the app** to your server.
-6. Put the secrets in the server env (see `.env.discord.example`) and run
-   `node scripts/register-discord-commands.mjs` to register `/agricola`.
+In production this rides on the existing **disco** Discord app (app id
+`1477537399365046415`), shared with the metta `disco` package and the cogents "agora"
+app. That choice has one hard constraint that shaped the launch path:
 
-The Developer Portal steps (1–5) cannot be done from code; everything else is wired to
-read these values from the environment.
+> **A Discord app delivers interactions over EITHER the gateway OR an HTTP endpoint,
+> never both.** disco is a **gateway** bot with existing commands (`clip`, `acp`).
+> Setting an HTTP `interactions_endpoint_url` on it (for the `/agricola` slash command)
+> reroutes *all* of disco's interactions to that URL and breaks `clip`/`acp`.
+
+So when reusing disco we do **not** set its interactions endpoint, and the shipped
+`POST /api/discord/interactions` route + `scripts/register-discord-commands.mjs` are
+**only** for a separate, dedicated app — not disco. Two launch paths work instead:
+
+1. **Activities shelf** (rocket icon) — Discord-handled, no command, no endpoint. The
+   primary path. Needs only Activities enabled + the URL mapping.
+2. **Gateway-handled `/agricola`** — added to the live disco gateway bot
+   (`metta/packages/disco`), which responds to the command with `launch_activity()` over
+   the gateway. Registered *additively* (never `tree.sync`, which would wipe `clip`/`acp`).
+
+**Rich presence:** in the Activity, the client calls the Embedded App SDK `setActivity`
+to show live game state on each participant ("Round 3/14" · Playing/Spectating).
+
+### Operator setup (one-time, needs your Discord account)
+
+On the **disco** app at <https://discord.com/developers/applications>:
+
+1. **Activities → Enable Activities.** Discord auto-creates a Discord-handled launcher
+   (does not touch the gateway, so `clip`/`acp` are safe).
+2. **Activities → URL Mappings:** prefix `/` → target `agricogla.dbloom.in`.
+3. **OAuth2 → Client Secret** → store with the bot token (the `agora/discord` secret
+   carries `application_id`/`client_secret`/`public_key`/`bot_token`).
+4. Server env (`DISCORD_CLIENT_ID/SECRET/PUBLIC_KEY`) is on the box via the systemd
+   drop-in; scopes are `identify`, `rpc.activities.write`.
+
+For a **dedicated** (non-shared) app instead, you *would* set the interactions endpoint to
+`/api/discord/interactions` and run the register script — but that path is incompatible
+with reusing a gateway bot like disco.
