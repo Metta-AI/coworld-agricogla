@@ -128,7 +128,7 @@ export interface GlobalViewProps {
 }
 export function GlobalView({ state, messages, log, mySeat }: GlobalViewProps) {
   return (
-    <main style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "370px minmax(0, 1fr) 330px", gap: 12 }}>
+    <main style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "370px minmax(0, 1fr) 330px", gap: 12 }}>
       <Section title="Action board" style={{ overflowY: "auto" }}>
         <ActionSpaces state={state} options={null} clickable={false} onPick={() => {}} />
       </Section>
@@ -172,7 +172,7 @@ export function FeedView({ state, messages, log, mySeat, onSend }: FeedViewProps
   }));
   const empty = log.length === 0 && messages.length === 0;
   return (
-    <main style={{ flex: 1, minHeight: 0, display: "flex", justifyContent: "center" }}>
+    <main style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
       <div style={{ width: 740, maxWidth: "100%", minHeight: 0, display: "flex", flexDirection: "column", ...panel, padding: "14px 18px" }}>
         <h2 style={sectionHeading}>Feed — actions &amp; table talk</h2>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, paddingRight: 4 }}>
@@ -258,7 +258,7 @@ export function PlayerView(props: PlayerViewProps) {
     : "Action board";
 
   return (
-    <main style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftOpen ? "350px" : "34px"} minmax(0, 1fr) ${rightOpen ? "330px" : "34px"}`, gap: 12 }}>
+    <main style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", gridTemplateColumns: `${leftOpen ? "350px" : "34px"} minmax(0, 1fr) ${rightOpen ? "330px" : "34px"}`, gap: 12 }}>
       {leftOpen ? (
         <Section title={boardTitle} style={{ overflowY: "auto" }} onCollapse={() => setLeftOpen(false)}>
           <ActionSpaces state={viewState} options={isMine ? options : null} clickable={myLiveTurn} onPick={onPick} />

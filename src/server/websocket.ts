@@ -104,6 +104,14 @@ export class SocketHub {
     const { state, handSizes } = this.#redact(client.playerIdx);
     this.#send(client, { type: "state", state, handSizes });
     this.#send(client, { type: "status", status: this.#status() });
+    // Full per-round timeline (redacted per seat) so the scrubber covers the
+    // whole game, even for a client that connected partway through.
+    const frames = this.#runner.roundFrames().map((f) => ({
+      round: f.round,
+      seed: f.seed,
+      state: redactState(f.state, client.playerIdx, { maskFuture: this.#opts.readOnly }).state,
+    }));
+    if (frames.length) this.#send(client, { type: "history", frames });
     for (const entry of this.#prompts.slice(-50)) {
       this.#send(client, { type: "actPrompt", entry });
     }

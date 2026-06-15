@@ -61,6 +61,9 @@ export class GameRunner {
   #availableModels: BedrockModel[] = [];
   #chat: ChatMessage[] = [];
   #chatSeq = 0;
+  /** One state snapshot per round since play began, so a client that connects
+   *  mid-game gets the full scrubber timeline (not just rounds since it loaded). */
+  #frames: { round: number; seed: number; state: GameState }[] = [];
   #thinking: number | null = null;
   #agents = new Map<string, Agent>();
   #opts: GameRunnerOpts;
@@ -95,6 +98,22 @@ export class GameRunner {
 
   chatLog(): readonly ChatMessage[] {
     return this.#chat;
+  }
+
+  /** Per-round state snapshots since play began (for a full scrubber on a
+   *  late-joining client). The hub redacts each per the client's seat. */
+  roundFrames(): readonly { round: number; seed: number; state: GameState }[] {
+    return this.#frames;
+  }
+
+  /** Append the current state as a round frame when the round advances (or
+   *  start a fresh timeline on a new game). No-op until play has begun. */
+  #captureFrame(): void {
+    const s = this.#state;
+    if (!s || !this.#started) return;
+    const last = this.#frames[this.#frames.length - 1];
+    if (!last || last.seed !== s.seed) this.#frames = [{ round: s.round, seed: s.seed, state: s }];
+    else if (s.round > last.round) this.#frames.push({ round: s.round, seed: s.seed, state: s });
   }
 
   status(): ServerStatus {
@@ -158,6 +177,7 @@ export class GameRunner {
     this.#models = [];
     this.#agents.clear();
     this.#state = null;
+    this.#frames = [];
     this.#opts.onUpdate?.();
   }
 
@@ -298,6 +318,7 @@ export class GameRunner {
     if (!this.#state) return; // empty lobby — nothing to start yet
     this.#paused = false;
     this.#started = true;
+    this.#captureFrame(); // round-1 frame
     this.#opts.onUpdate?.();
     void this.tick();
   }
@@ -313,6 +334,8 @@ export class GameRunner {
     this.#agents.clear();
     const nextSeed = seed ?? (this.#state ? this.#state.seed + 1 : this.#opts.seed);
     this.#state = this.#names.length >= 1 ? this.#build(nextSeed) : null;
+    this.#frames = [];
+    this.#captureFrame(); // fresh round-1 frame for the new game
     this.#opts.onUpdate?.();
     void this.tick();
   }
@@ -329,6 +352,7 @@ export class GameRunner {
     this.#agents.clear();
     this.#paused = true;
     this.#started = false;
+    this.#frames = []; // the finished game's scrubber timeline is over
     const nextSeed = this.#state ? this.#state.seed + 1 : this.#opts.seed;
     this.#state = this.#names.length >= 1 ? this.#build(nextSeed) : null;
     this.#opts.onUpdate?.();
@@ -339,6 +363,7 @@ export class GameRunner {
     if (!before) return;
     const after = applyPlacement(before, playerIdx, placement).state;
     this.#state = after;
+    this.#captureFrame();
     this.#opts.onAction?.({ playerIdx, kind: "place", placement });
     if (after.round > before.round && after.phase === "work") this.#maybeChatter();
   }
@@ -359,6 +384,7 @@ export class GameRunner {
     const before = this.#state;
     if (!before) return;
     this.#state = applyFeeding(before, playerIdx, decision).state;
+    this.#captureFrame();
     this.#opts.onAction?.({ playerIdx, kind: "feed", decision });
   }
 

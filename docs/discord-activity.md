@@ -1,7 +1,7 @@
 # Discord Activity integration
 
 Watch and play agricogla **inside Discord** as an Embedded App (Activity). A member
-runs `/agricola` in a voice channel; Discord opens the agricogla viewer in the
+runs `/agricogla` in a voice channel; Discord opens the agricogla viewer in the
 channel's Activity shelf; members claim seats, empty seats fill with Claude bots,
 everyone else spectates live.
 
@@ -47,7 +47,7 @@ Three pieces; two are new, one is a small edit.
 
 ```
 Discord client (voice channel)
-  │  user runs /agricola
+  │  user runs /agricogla
   ▼
 POST /api/discord/interactions        ──► returns LAUNCH_ACTIVITY (type 12)
   │  (ed25519-verified webhook, lives in the same Express app)
@@ -86,7 +86,7 @@ the routes don't exist and standalone behaviour is identical.
 - `oauth.ts` — `exchangeCode(code)` and `fetchUser(token)` (Discord OAuth2).
 - `verify.ts` — `verifyInteractionSignature()` using Node's ed25519 (`node:crypto`),
   no extra dependency.
-- `interactions.ts` — PING→PONG, and `agricola`→`LAUNCH_ACTIVITY`.
+- `interactions.ts` — PING→PONG, and `agricogla`→`LAUNCH_ACTIVITY`.
 - `seats.ts` — `DiscordSeats`: binds a Discord user id to a lobby seat + a minted
   token; `claim`, `validate`, `startWithBots`, `reset`.
 - `routes.ts` — `mountDiscord(app, runner, hub, config)`.
@@ -103,7 +103,7 @@ the routes don't exist and standalone behaviour is identical.
 
 ## Lifecycle (one shared game)
 
-1. `/agricola` → Activity opens, shows current state.
+1. `/agricogla` → Activity opens, shows current state.
 2. **Lobby**: members click *Take a seat* (seat bound to their Discord id, token
    minted). Non-claimers spectate.
 3. Host clicks *Start* → `fillWithBots()` tops the table to 4 with `llm`, then
@@ -142,7 +142,7 @@ app. That choice has one hard constraint that shaped the launch path:
 
 > **A Discord app delivers interactions over EITHER the gateway OR an HTTP endpoint,
 > never both.** disco is a **gateway** bot with existing commands (`clip`, `acp`).
-> Setting an HTTP `interactions_endpoint_url` on it (for the `/agricola` slash command)
+> Setting an HTTP `interactions_endpoint_url` on it (for the `/agricogla` slash command)
 > reroutes *all* of disco's interactions to that URL and breaks `clip`/`acp`.
 
 So when reusing disco we do **not** set its interactions endpoint, and the shipped
@@ -151,7 +151,7 @@ So when reusing disco we do **not** set its interactions endpoint, and the shipp
 
 1. **Activities shelf** (rocket icon) — Discord-handled, no command, no endpoint. The
    primary path. Needs only Activities enabled + the URL mapping.
-2. **Gateway-handled `/agricola`** — added to the live disco gateway bot
+2. **Gateway-handled `/agricogla`** — added to the live disco gateway bot
    (`metta/packages/disco`), which responds to the command with `launch_activity()` over
    the gateway. Registered *additively* (never `tree.sync`, which would wipe `clip`/`acp`).
 

@@ -83,6 +83,9 @@ export interface ChatMessage {
 
 export type ServerMessage =
   | { type: "state"; state: GameState | null; handSizes: HandSizes[] }
+  /** One redacted snapshot per round so far, so a late-joining client shows the
+   *  full scrubber timeline instead of only rounds since it connected. */
+  | { type: "history"; frames: { round: number; seed: number; state: GameState }[] }
   | { type: "seat"; playerIdx: number | null }
   | { type: "status"; status: ServerStatus }
   | { type: "actPrompt"; entry: ActPromptWire }

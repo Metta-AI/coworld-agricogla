@@ -15,7 +15,7 @@ export const InteractionCallbackType = {
 } as const;
 
 /** The slash command that launches the Activity. */
-export const COMMAND_NAME = "agricola";
+export const COMMAND_NAME = "agricogla";
 
 const interactionSchema = z.object({
   type: z.number(),
