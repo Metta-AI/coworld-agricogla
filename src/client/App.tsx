@@ -212,7 +212,18 @@ function GameApp({ initialSeat, onStart, allowRemove = true, reportPresence }: G
   const prevControllerRef = useRef<Record<number, Controller>>({});
   const [seatMenu, setSeatMenu] = useState<{ seat: number; x: number; y: number } | null>(null);
 
-  const { state, status, prompts, chat, lastError, connected } = socket.feed;
+  const { state, status, prompts, chat, lastError, connected, history } = socket.feed;
+
+  // Seed the scrubber with the full per-round history the server sends on
+  // connect, so a client that joined mid-game still sees rounds 1→now (not just
+  // rounds since it loaded). The live effect below appends rounds after this.
+  useEffect(() => {
+    if (!history.length) return;
+    setFrames((prev) => {
+      if (prev.length >= history.length && prev[0]?.seed === history[0]!.seed) return prev;
+      return history.map((h) => ({ round: h.round, seed: h.seed, state: h.state }));
+    });
+  }, [history]);
 
   // Accumulate one snapshot per round boundary for the scrubber.
   useEffect(() => {

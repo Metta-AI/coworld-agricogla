@@ -49,3 +49,29 @@ describe("GameRunner autopilot models", () => {
     expect(r.status().models).toEqual([DEFAULT_BEDROCK_MODEL, DEFAULT_BEDROCK_MODEL]);
   });
 });
+
+describe("GameRunner scrubber history", () => {
+  it("has no round frames until play begins", () => {
+    expect(runner(2).roundFrames()).toHaveLength(0);
+  });
+
+  it("seeds a round-1 frame when play starts (full scrubber for late joiners)", () => {
+    const r = runner(2);
+    r.resume();
+    r.pause(); // halt the background scripted game so the count is stable
+    const frames = r.roundFrames();
+    expect(frames.length).toBeGreaterThanOrEqual(1);
+    expect(frames[0]).toMatchObject({ round: 1, seed: 1 });
+  });
+
+  it("restarts the timeline on a new game", () => {
+    const r = runner(2);
+    r.resume();
+    r.pause();
+    r.reset();
+    r.pause();
+    const frames = r.roundFrames();
+    expect(frames.length).toBeGreaterThanOrEqual(1);
+    expect(frames[0]!.round).toBe(1);
+  });
+});

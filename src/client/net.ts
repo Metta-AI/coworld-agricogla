@@ -15,6 +15,8 @@ export interface FeedState {
   status: ServerStatus | null;
   prompts: ActPromptWire[];
   chat: ChatMessage[];
+  /** Per-round snapshots sent on connect, to seed a full scrubber timeline. */
+  history: { round: number; seed: number; state: GameState }[];
   lastError: string | null;
   connected: boolean;
 }
@@ -30,6 +32,7 @@ export class GameSocket {
     status: null,
     prompts: [],
     chat: [],
+    history: [],
     lastError: null,
     connected: false,
   };
@@ -65,6 +68,9 @@ export class GameSocket {
           this.feed.state = message.state;
           this.feed.handSizes = message.handSizes;
           this.feed.lastError = null;
+          break;
+        case "history":
+          this.feed.history = message.frames;
           break;
         case "seat":
           // Re-seated by the lobby: null = removed (back to /join), else our
