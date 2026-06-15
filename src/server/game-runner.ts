@@ -352,6 +352,7 @@ export class GameRunner {
     this.#agents.clear();
     this.#paused = true;
     this.#started = false;
+    this.#frames = []; // the finished game's scrubber timeline is over
     const nextSeed = this.#state ? this.#state.seed + 1 : this.#opts.seed;
     this.#state = this.#names.length >= 1 ? this.#build(nextSeed) : null;
     this.#opts.onUpdate?.();
