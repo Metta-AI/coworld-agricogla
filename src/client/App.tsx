@@ -16,6 +16,7 @@ import { C, F } from "./agricogla/theme";
 import {
   claimSeat,
   DiscordSession,
+  errText,
   isDiscordActivity,
   setupDiscord,
   startGame,
@@ -102,7 +103,7 @@ function DiscordActivity() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setupDiscord().then(setSession, (e) => setError(String(e)));
+    setupDiscord().then(setSession, (e) => setError(errText(e)));
   }, []);
 
   // Map live game state onto this member's Discord rich presence. Stable across
@@ -145,7 +146,7 @@ function DiscordActivity() {
   const take = async () => {
     setBusy(true);
     const grant = await claimSeat(session.accessToken).catch((e) => {
-      setError(String(e));
+      setError(errText(e));
       return null;
     });
     if (grant) {

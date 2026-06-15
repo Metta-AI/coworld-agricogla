@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Register the /agricola slash command with Discord. Run once after setting up
+// Register the /agricogla slash command with Discord. Run once after setting up
 // the app (and again whenever the command definition changes).
 //
 //   DISCORD_CLIENT_ID=... DISCORD_BOT_TOKEN=... [DISCORD_GUILD_ID=...] \
@@ -24,7 +24,7 @@ const url = guildId
   : `https://discord.com/api/v10/applications/${appId}/commands`;
 
 const command = {
-  name: "agricola",
+  name: "agricogla",
   type: 1, // CHAT_INPUT
   description: "Start or watch an Agricola game in this voice channel",
 };
@@ -41,4 +41,4 @@ if (!res.ok) {
 }
 
 const scope = guildId ? `guild ${guildId}` : "globally";
-console.log(`Registered /agricola ${scope}.`);
+console.log(`Registered /agricogla ${scope}.`);

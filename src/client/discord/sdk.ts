@@ -47,19 +47,48 @@ async function postJson<T>(path: string, body: unknown): Promise<{ ok: boolean; 
   return { ok: res.ok, status: res.status, data };
 }
 
+/** Render any thrown value (Discord SDK errors are plain {code,message} objects,
+ *  which String() turns into a useless "[object Object]"). */
+export function errText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
+}
+
+/** Run a handshake step, tagging any failure with which step it was so the
+ *  surfaced error says e.g. "authorize: {code:4011,...}" instead of [object Object]. */
+async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    throw new Error(`${label}: ${errText(e)}`);
+  }
+}
+
 async function realSession(): Promise<DiscordSession> {
-  const { clientId } = await fetch(api("api/discord/config")).then((r) => r.json());
+  const cfg = await step("config", () => fetch(api("api/discord/config")));
+  if (!cfg.ok) throw new Error(`config: HTTP ${cfg.status}`);
+  const { clientId } = await cfg.json();
   const sdk = new DiscordSDK(clientId);
-  await sdk.ready();
-  const { code } = await sdk.commands.authorize({
-    client_id: clientId,
-    response_type: "code",
-    state: "",
-    prompt: "none",
-    scope: ["identify", "rpc.activities.write"],
-  });
-  const { data } = await postJson<{ access_token: string }>("api/discord/token", { code });
-  const auth = await sdk.commands.authenticate({ access_token: data.access_token });
+  await step("ready", () => sdk.ready());
+  const { code } = await step("authorize", () =>
+    sdk.commands.authorize({
+      client_id: clientId,
+      response_type: "code",
+      state: "",
+      prompt: "none",
+      scope: ["identify", "rpc.activities.write"],
+    }),
+  );
+  const { ok, status, data } = await postJson<{ access_token: string }>("api/discord/token", { code });
+  if (!ok) throw new Error(`token: HTTP ${status} ${errText(data)}`);
+  const auth = await step("authenticate", () =>
+    sdk.commands.authenticate({ access_token: data.access_token }),
+  );
   return {
     user: auth.user,
     accessToken: data.access_token,
