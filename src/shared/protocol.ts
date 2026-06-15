@@ -141,6 +141,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
     seed: z.number().int().optional(),
     players: z.number().int().min(1).max(4).optional(),
   }),
+  z.object({ type: z.literal("newGame") }),
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
