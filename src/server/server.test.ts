@@ -82,22 +82,6 @@ describe("GameRunner", () => {
     expect(() => runner.humanPlace(other, { action: "fishing" } as never)).toThrow(/turn/);
   });
 
-  it("reset mid-game restarts the autopilot loop", async () => {
-    const runner = new GameRunner({
-      seed: 5,
-      numPlayers: 2,
-      controllers: ["scripted", "scripted"],
-      paceMs: 5,
-    });
-    void runner.tick();
-    await sleep(40); // mid-game
-    expect(runner.state!.phase).not.toBe("finished");
-    runner.reset(99);
-    expect(runner.state!.seed).toBe(99);
-    for (let i = 0; i < 2000 && runner.state!.phase !== "finished"; i++) await sleep(10);
-    expect(runner.state!.phase).toBe("finished");
-  });
-
   it("new game (toLobby) returns to the lobby with the roster intact", async () => {
     const runner = new GameRunner({
       seed: 5,

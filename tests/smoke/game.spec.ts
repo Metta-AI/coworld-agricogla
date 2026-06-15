@@ -6,19 +6,20 @@ async function currentRound(page: Page): Promise<number> {
   return Number(value);
 }
 
-/** Start a fresh game and wait for it to be live again. When a game has ended
- *  the final-scoring overlay covers the footer button, so use its "Play again"
- *  button (instant rematch) in that case. The footer "new game" button instead
- *  drops to the lobby, so follow it with "Start game" to relaunch play. */
+/** Start a fresh game and wait for it to be live again. Both the post-game
+ *  scoreboard "New game" button and the footer "new game" button drop to the
+ *  lobby with the roster intact; the final-scoring overlay covers the footer
+ *  once a game ends, so use the scoreboard's button when it is showing. Either
+ *  way, click "Start game" to relaunch play. */
 async function resetGame(page: Page): Promise<void> {
   await expect(page.getByTestId("round-indicator")).toBeVisible();
-  const playAgain = page.getByRole("button", { name: "Play again" });
-  if (await playAgain.isVisible().catch(() => false)) {
-    await playAgain.click();
+  const scoreboardNewGame = page.getByRole("button", { name: "New game", exact: true });
+  if (await scoreboardNewGame.isVisible().catch(() => false)) {
+    await scoreboardNewGame.click(); // scoreboard → lobby
   } else {
-    await page.getByTestId("new-game").click(); // → lobby (roster kept)
-    await page.getByRole("button", { name: /Start game/i }).click(); // → live
+    await page.getByTestId("new-game").click(); // footer → lobby
   }
+  await page.getByRole("button", { name: /Start game/i }).click(); // lobby → live
   // Delivered over the websocket; wait for the fresh game to land.
   await expect.poll(() => currentRound(page), { timeout: 15_000 }).toBeLessThanOrEqual(2);
 }

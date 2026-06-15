@@ -139,11 +139,6 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("resume") }),
   z.object({ type: z.literal("addBot") }),
   z.object({ type: z.literal("removeSeat"), playerIdx: z.number().int().min(0).max(3) }),
-  z.object({
-    type: z.literal("reset"),
-    seed: z.number().int().optional(),
-    players: z.number().int().min(1).max(4).optional(),
-  }),
   z.object({ type: z.literal("newGame") }),
 ]);
 

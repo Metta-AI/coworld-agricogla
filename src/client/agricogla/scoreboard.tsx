@@ -36,7 +36,7 @@ export function ScoreBoard({ state, onNewGame, onClose }: { state: GameState; on
           <Row label="TOTAL" total cells={scores.map((s) => s.total)} max={max} colors={scores.map((s) => state.players[s.playerIdx]!.color)} />
         </div>
         <button onClick={onNewGame} style={{ alignSelf: "center", background: C.ember, color: C.emberInk, border: "none", borderRadius: 8, padding: "10px 26px", fontWeight: 800, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>
-          Play again
+          New game
         </button>
       </div>
     </div>

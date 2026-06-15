@@ -231,9 +231,6 @@ export class SocketHub {
           this.broadcastState();
           break;
         }
-        case "reset":
-          this.#runner.reset(message.seed);
-          break;
         case "newGame":
           this.#runner.toLobby();
           break;

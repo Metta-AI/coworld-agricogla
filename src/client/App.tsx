@@ -570,7 +570,7 @@ function GameApp({ initialSeat, onStart, allowRemove = true, reportPresence }: G
           state={state}
           onNewGame={() => {
             setScoreClosed(false);
-            socket.reset();
+            socket.newGame();
           }}
           onClose={() => setScoreClosed(true)}
         />

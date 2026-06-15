@@ -68,7 +68,9 @@ describe("GameRunner scrubber history", () => {
     const r = runner(2);
     r.resume();
     r.pause();
-    r.reset();
+    r.toLobby(); // "New game" → back to the lobby clears the finished timeline
+    expect(r.roundFrames()).toHaveLength(0);
+    r.resume(); // Start a fresh game
     r.pause();
     const frames = r.roundFrames();
     expect(frames.length).toBeGreaterThanOrEqual(1);

@@ -167,11 +167,6 @@ export class GameSocket {
     this.#send({ type: "removeSeat", playerIdx });
   }
 
-  /** Post-game "Play again": instant rematch with the current roster. */
-  reset(seed?: number, players?: number): void {
-    this.#send({ type: "reset", seed, players });
-  }
-
   /** "New game": leave the current game and return to the lobby (roster kept)
    *  to set up a fresh game. */
   newGame(): void {
