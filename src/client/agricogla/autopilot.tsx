@@ -89,7 +89,12 @@ export function Autopilot({
   return (
     <div
       style={{
-        flex: "none",
+        // Share the side column with the inbox and scroll the decision log
+        // internally, so a tall log can't push the inbox/composer off-screen
+        // (into the scrubber/footer) in a short viewport like the Discord Activity.
+        flex: "1 1 0",
+        minHeight: 0,
+        overflow: "hidden",
         background: "linear-gradient(180deg, #1a1d1a, #12140f)",
         border: `1px solid ${on ? "#6a5524" : C.border}`,
         borderRadius: 10,
@@ -185,7 +190,7 @@ export function Autopilot({
       />
       <div style={{ fontSize: 11.5, color: statusColor, fontWeight: 500 }}>{statusText}</div>
       {recent.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 220, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
           <div style={{ fontFamily: F.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted }}>
             What the model saw &amp; decided
           </div>
