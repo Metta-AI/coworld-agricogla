@@ -155,13 +155,16 @@ describe("DiscordSeats", () => {
     expect(runner.seat).toHaveBeenCalledTimes(1);
   });
 
-  it("validates only the live token for a seat", () => {
+  it("locks a claimed seat to its token but leaves unclaimed seats open", () => {
     const seats = new DiscordSeats(fakeRunner() as never);
     const grant = seats.claim(USER("u1"));
+    // The claimed seat requires its minted token.
     expect(seats.validate(grant.playerIdx, grant.token)).toBe(true);
     expect(seats.validate(grant.playerIdx, "wrong")).toBe(false);
     expect(seats.validate(grant.playerIdx, undefined)).toBe(false);
-    expect(seats.validate(99, grant.token)).toBe(false);
+    // An unclaimed seat (bot/empty) stays open to direct standalone seating.
+    expect(seats.validate(99, undefined)).toBe(true);
+    expect(seats.validate(99, grant.token)).toBe(true);
   });
 
   it("startWithBots fills the table then begins play", () => {
@@ -177,7 +180,9 @@ describe("DiscordSeats", () => {
     const grant = seats.claim(USER("u1"));
     seats.reset();
     expect(runner.clearSeats).toHaveBeenCalledOnce();
-    expect(seats.validate(grant.playerIdx, grant.token)).toBe(false);
+    // The old grant no longer binds the seat; it's unclaimed and open again.
+    expect(seats.validate(grant.playerIdx, grant.token)).toBe(true);
+    expect(seats.validate(grant.playerIdx, undefined)).toBe(true);
   });
 });
 
