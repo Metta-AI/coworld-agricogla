@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { computeAutoFeed } from "../shared/engine/apply";
 import { legalActions, playerChoices } from "../shared/engine/legal";
 import { Placement } from "../shared/engine/placements";
@@ -105,6 +105,18 @@ function DiscordActivity() {
     setupDiscord().then(setSession, (e) => setError(String(e)));
   }, []);
 
+  // Map live game state onto this member's Discord rich presence. Stable across
+  // renders (depends only on the session) so it doesn't thrash GameApp's effect.
+  const reportPresence = useCallback(
+    (info: { round: number; phase: string; finished: boolean; seated: boolean }) => {
+      session?.setActivity({
+        details: info.finished ? "Game over" : `Round ${info.round}/14`,
+        state: info.seated ? "Playing" : "Spectating",
+      });
+    },
+    [session],
+  );
+
   if (error) {
     return (
       <ActivityShell>
@@ -125,6 +137,7 @@ function DiscordActivity() {
         initialSeat={seat}
         onStart={() => void startGame(session.accessToken)}
         allowRemove={false}
+        reportPresence={reportPresence}
       />
     );
   }
@@ -169,9 +182,11 @@ interface GameAppProps {
   initialSeat?: { playerIdx: number | null; token?: string };
   onStart?: () => void;
   allowRemove?: boolean;
+  /** Discord mode: report live game state for the participant's rich presence. */
+  reportPresence?: (info: { round: number; phase: string; finished: boolean; seated: boolean }) => void;
 }
 
-function GameApp({ initialSeat, onStart, allowRemove = true }: GameAppProps = {}) {
+function GameApp({ initialSeat, onStart, allowRemove = true, reportPresence }: GameAppProps = {}) {
   const [, setTick] = useState(0);
   const seat = initialSeat ?? routeSeat();
   // Seat is URL-derived initially, but can be re-claimed live via the seat menu.
@@ -232,6 +247,18 @@ function GameApp({ initialSeat, onStart, allowRemove = true }: GameAppProps = {}
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [frames.length, histIndex]);
+
+  // Discord rich presence: reflect the live round + whether this member is
+  // playing or watching. Only active in the Activity (reportPresence provided).
+  useEffect(() => {
+    if (!reportPresence || !status) return;
+    reportPresence({
+      round: status.round,
+      phase: status.phase,
+      finished: status.finished,
+      seated: mySeat !== null,
+    });
+  }, [reportPresence, status?.round, status?.phase, status?.finished, mySeat]);
 
   if (!status) {
     return (

@@ -1,9 +1,17 @@
 import { DiscordSDK } from "@discord/embedded-app-sdk";
 
+/** Rich-presence fields we surface on a participant ("Round 3/14" · "Playing"). */
+export interface PresenceActivity {
+  details?: string;
+  state?: string;
+}
+
 /** The identity + token the Activity carries after the Discord handshake. */
 export interface DiscordSession {
   user: { id: string; username: string; global_name?: string | null };
   accessToken: string;
+  /** Update this participant's Discord rich presence (no-op under the shim). */
+  setActivity(activity: PresenceActivity): void;
 }
 
 /** A claimed seat (over /ws) or null when the table was full / already started. */
@@ -52,7 +60,14 @@ async function realSession(): Promise<DiscordSession> {
   });
   const { data } = await postJson<{ access_token: string }>("api/discord/token", { code });
   const auth = await sdk.commands.authenticate({ access_token: data.access_token });
-  return { user: auth.user, accessToken: data.access_token };
+  return {
+    user: auth.user,
+    accessToken: data.access_token,
+    setActivity: (activity) => {
+      // Fire-and-forget; a presence update failing must never break the game.
+      void sdk.commands.setActivity({ activity: { type: 0, ...activity } }).catch(() => {});
+    },
+  };
 }
 
 async function shimSession(): Promise<DiscordSession> {
@@ -62,7 +77,11 @@ async function shimSession(): Promise<DiscordSession> {
   const { data } = await postJson<{ access_token: string }>("api/discord/token", {
     code: JSON.stringify(user),
   });
-  return { user, accessToken: data.access_token };
+  return {
+    user,
+    accessToken: data.access_token,
+    setActivity: (activity) => console.info("[discord-shim] setActivity", activity),
+  };
 }
 
 /** Run the Discord (or shim) handshake and return the session identity. */
