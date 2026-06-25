@@ -8,17 +8,11 @@ services:
     build:
       context: .
   commissioner:
-    # ruleset_strategy commissioner (default round-robin config). The older
-    # "baseline"/auto commissioner promotes qualifiers with substatus=None but
-    # only schedules Competition rounds for substatus=="champion" entrants, so
-    # it never runs Competition rounds under the current backend. The
-    # ruleset_strategy commissioner graduates champions with substatus="champion",
-    # keeping promotion and scheduling consistent.
-    #
-    # Pinned to the linux/amd64 manifest digest of
-    # ghcr.io/metta-ai/commissioners-default:latest. The :latest tag is an
-    # amd64-only manifest list, which `coworld build` cannot `docker pull` on an
-    # arm64 host; the platform-specific digest pulls everywhere and the cluster
-    # runs amd64 anyway.
-    image: ghcr.io/metta-ai/commissioners-default@sha256:eb4ba4ffe217db428fc8a52d3aced310c6b0d065bb698063d7202e748b7f2421
+    image: coworld-agricogla-commissioner:latest
     platform: linux/amd64
+    build:
+      context: ./commissioner
+      dockerfile: commissioners/Dockerfile
+      args:
+        COMMISSIONER_KEY: config_driven
+        RULESET_STRATEGY_CONFIG_NAME: agricogla
