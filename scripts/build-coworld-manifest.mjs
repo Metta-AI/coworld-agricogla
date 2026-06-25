@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const doc = (name) => readFileSync(join(root, "docs", "coworld", name)).toString();
 
-const REPO_URL = "https://github.com/Metta-AI/cogame-agricogla";
+const REPO_URL = "https://github.com/Metta-AI/coworld-agricogla";
 const GAME_RUN = ["npx", "tsx", "src/server/coworld-main.ts"];
 const PLAYER_RUN = ["npx", "tsx", "src/agents/coworld-player.ts"];
 const LLM_PLAYER_RUN = ["npx", "tsx", "src/agents/coworld-llm-player.ts"];
@@ -157,7 +157,7 @@ const manifest = {
       type: "commissioner",
       description: "Game-agnostic round-robin commissioner with mean-score rankings.",
       source_url:
-        "https://github.com/Metta-AI/commissioners/tree/main/commissioners/ruleset_strategy_commissioner",
+        "https://github.com/Metta-AI/coworld-agricogla/tree/main/commissioner/commissioners/ruleset_strategy_commissioner",
       image: "{{COMMISSIONER_IMAGE}}",
     },
   ],
