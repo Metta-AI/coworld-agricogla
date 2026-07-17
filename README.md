@@ -1,5 +1,7 @@
 # Coworld Agricogla
 
+> The Coworld build contract is owned by [Metta Cogweb](https://github.com/Metta-AI/metta/tree/main/packages/cogweb/games/agricogla/coworld). This historical repository no longer owns a compose file or manifest template.
+
 <!-- COWORLD-VERIFY-BADGE:START -->
 ![Coworld verify: not ready](https://img.shields.io/badge/coworld%20verify-not%20ready-lightgrey)
 <!-- COWORLD-VERIFY-BADGE:END -->
